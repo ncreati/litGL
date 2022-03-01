@@ -1,0 +1,2 @@
+include litGL/*.nbf
+include litGL/examples/*.nbf

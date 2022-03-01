@@ -1,0 +1,510 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>litGL.glyph &#8212; litGL 1.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css" />
+    
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">litGL 1.0.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">litGL.glyph</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for litGL.glyph</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot; Font glyphs extractor.</span>
+
+<span class="sd">    Author:</span>
+<span class="sd">            - 2020-2021 Nicola Creati</span>
+
+<span class="sd">            - 2020-2021 Roberto Vidmar</span>
+
+<span class="sd">        Copyright:</span>
+<span class="sd">            2020-2021 Nicola Creati &lt;ncreati@inogs.it&gt;</span>
+
+<span class="sd">            2020-2021 Roberto Vidmar &lt;rvidmar@inogs.it&gt;</span>
+
+<span class="sd">        License:</span>
+<span class="sd">            MIT/X11 License (see</span>
+<span class="sd">            :download:`license.txt &lt;../../../license.txt&gt;`)</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+
+<span class="c1"># =============================================================================</span>
+<div class="viewcode-block" id="BitmapAtlas"><a class="viewcode-back" href="../../api/index.html#litGL.glyph.BitmapAtlas">[docs]</a><span class="k">class</span> <span class="nc">BitmapAtlas</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot; Group multiple small data regions into a larger texture.</span>
+
+<span class="sd">        The algorithm is based on the article by Jukka Jylänki:</span>
+<span class="sd">        &quot;A Thousand Ways to Pack the Bin - A Practical Approach to</span>
+<span class="sd">        Two-Dimensional Rectangle Bin Packing&quot;, February 27, 2010.</span>
+<span class="sd">        More precisely, this is an implementation of</span>
+<span class="sd">        the Skyline Bottom-Left algorithm based on C++ sources provided by</span>
+<span class="sd">        Jukka Jylänki at: http://clb.demon.fi/files/RectangleBinPack/</span>
+
+<span class="sd">        ::</span>
+
+<span class="sd">            atlas = Atlas(512, 512, 3)</span>
+<span class="sd">            region = atlas.get_region(20, 20)</span>
+<span class="sd">            ...</span>
+<span class="sd">            atlas.set_region(region, data)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+<div class="viewcode-block" id="BitmapAtlas.__init__"><a class="viewcode-back" href="../../api/index.html#litGL.glyph.BitmapAtlas.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mi">8192</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">8192</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Initialize a new atlas of given size.</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                width (int): Width of the underlying texture</span>
+<span class="sd">                height (int): Height of the underlying texture</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">width</span>  <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">pow</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">width</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="mf">0.5</span><span class="p">)))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">height</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">pow</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">height</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="mf">0.5</span><span class="p">)))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span>  <span class="o">=</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">width</span><span class="p">),]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span>   <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">height</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">width</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span>
+                               <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">ubyte</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">atlasId</span>  <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">used</span>   <span class="o">=</span> <span class="mi">0</span></div>
+
+<div class="viewcode-block" id="BitmapAtlas.getFreeSpot"><a class="viewcode-back" href="../../api/index.html#litGL.glyph.BitmapAtlas.getFreeSpot">[docs]</a>    <span class="k">def</span> <span class="nf">getFreeSpot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Allocate a free region of given size and return it.</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                width (int): Width of region to allocate</span>
+<span class="sd">                height (int): Height of region to allocate</span>
+
+<span class="sd">            Returns:</span>
+<span class="sd">                tuple: A newly allocated region as (x, y, width, height)</span>
+<span class="sd">                or (-1, -1, 0, 0)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">best_height</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">maxsize</span>
+        <span class="n">best_index</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+        <span class="n">best_width</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">maxsize</span>
+        <span class="n">region</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">)):</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fit</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">y</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">node</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">y</span><span class="o">+</span><span class="n">height</span> <span class="o">&lt;</span> <span class="n">best_height</span> <span class="ow">or</span>
+                    <span class="p">(</span><span class="n">y</span><span class="o">+</span><span class="n">height</span> <span class="o">==</span> <span class="n">best_height</span> <span class="ow">and</span> <span class="n">node</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">best_width</span><span class="p">)):</span>
+                    <span class="n">best_height</span> <span class="o">=</span> <span class="n">y</span><span class="o">+</span><span class="n">height</span>
+                    <span class="n">best_index</span> <span class="o">=</span> <span class="n">i</span>
+                    <span class="n">best_width</span> <span class="o">=</span> <span class="n">node</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+                    <span class="n">region</span> <span class="o">=</span> <span class="n">node</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">y</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span>
+
+        <span class="k">if</span> <span class="n">best_index</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span>
+
+        <span class="n">node</span> <span class="o">=</span> <span class="n">region</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">region</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="n">height</span><span class="p">,</span> <span class="n">width</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">best_index</span><span class="p">,</span> <span class="n">node</span><span class="p">)</span>
+
+        <span class="n">i</span> <span class="o">=</span> <span class="n">best_index</span><span class="o">+</span><span class="mi">1</span>
+        <span class="k">while</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">):</span>
+            <span class="n">node</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">prev_node</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">node</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">prev_node</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">+</span><span class="n">prev_node</span><span class="p">[</span><span class="mi">2</span><span class="p">]:</span>
+                <span class="n">shrink</span> <span class="o">=</span> <span class="n">prev_node</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">+</span><span class="n">prev_node</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="n">node</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">,</span><span class="n">w</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span><span class="o">+</span><span class="n">shrink</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">w</span><span class="o">-</span><span class="n">shrink</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                    <span class="n">i</span> <span class="o">-=</span> <span class="mi">1</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">break</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">break</span>
+            <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_merge</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">used</span> <span class="o">+=</span> <span class="n">width</span><span class="o">*</span><span class="n">height</span>
+        <span class="k">return</span> <span class="n">region</span></div>
+
+<div class="viewcode-block" id="BitmapAtlas._fit"><a class="viewcode-back" href="../../api/index.html#litGL.glyph.BitmapAtlas._fit">[docs]</a>    <span class="k">def</span> <span class="nf">_fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Test if region (width, height) fits into self.nodes[index],</span>
+<span class="sd">            return -1 if it does not.</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                index (int): Index of the internal node to be tested</span>
+<span class="sd">                width (int): Width or the region to be tested</span>
+<span class="sd">                height (int): Height or the region to be tested</span>
+
+<span class="sd">            Returns:</span>
+<span class="sd">                int: offset or -1</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">node</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
+        <span class="n">x</span><span class="p">,</span><span class="n">y</span> <span class="o">=</span> <span class="n">node</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">node</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">width_left</span> <span class="o">=</span> <span class="n">width</span>
+
+        <span class="k">if</span> <span class="n">x</span><span class="o">+</span><span class="n">width</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">width</span><span class="p">:</span>
+            <span class="k">return</span> <span class="o">-</span><span class="mi">1</span>
+
+        <span class="n">i</span> <span class="o">=</span> <span class="n">index</span>
+        <span class="k">while</span> <span class="n">width_left</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">node</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">node</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">y</span><span class="o">+</span><span class="n">height</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">height</span><span class="p">:</span>
+                <span class="k">return</span> <span class="o">-</span><span class="mi">1</span>
+            <span class="n">width_left</span> <span class="o">-=</span> <span class="n">node</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+            <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="n">y</span></div>
+
+<div class="viewcode-block" id="BitmapAtlas._merge"><a class="viewcode-back" href="../../api/index.html#litGL.glyph.BitmapAtlas._merge">[docs]</a>    <span class="k">def</span> <span class="nf">_merge</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Merge nodes</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">while</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+            <span class="n">node</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">next_node</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">node</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">next_node</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">node</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">node</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">node</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">+</span><span class="n">next_node</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+                <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span></div></div>
+
+<span class="c1"># =============================================================================</span>
+<div class="viewcode-block" id="Glyph"><a class="viewcode-back" href="../../api/index.html#litGL.glyph.Glyph">[docs]</a><span class="k">class</span> <span class="nc">Glyph</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot; Abstraction of TTF glyf Glyph table. It stores the glyph metric,</span>
+<span class="sd">        extract vectorial Bezier curves, creates the vertices of the bounding</span>
+<span class="sd">        box used by OpenGL to render the glyph.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">FT_CURVE_TAG_CONIC</span><span class="p">,</span> <span class="n">FT_CURVE_TAG_ON</span><span class="p">,</span> <span class="n">FT_CURVE_TAG_CUBIC</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Glyph.__init__"><a class="viewcode-back" href="../../api/index.html#litGL.glyph.Glyph.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Create new instance.</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                name (str): glyph name</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+
+        <span class="c1"># Hex glyf code if available in the charmap, unicode</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">codePoint</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># Progressive index</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">description</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># Save bezier curves in a list of arrays, one for each contour</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">contours</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># Bezier curves as list of structured arrays</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">dataTable</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dataTable</span><span class="p">[</span><span class="s1">&#39;glyphTypes&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bezierCount</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scale</span> <span class="o">=</span> <span class="mf">1.0</span></div>
+
+<div class="viewcode-block" id="Glyph.cp"><a class="viewcode-back" href="../../api/index.html#litGL.glyph.Glyph.cp">[docs]</a>    <span class="k">def</span> <span class="nf">cp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Return the point code integer = ord(chr(charPoint)).</span>
+
+<span class="sd">            Returns:</span>
+<span class="sd">                int: point code integer</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">codePoint</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">codePoint</span></div>
+
+<div class="viewcode-block" id="Glyph.setMetric"><a class="viewcode-back" href="../../api/index.html#litGL.glyph.Glyph.setMetric">[docs]</a>    <span class="k">def</span> <span class="nf">setMetric</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">glyphItem</span><span class="p">,</span> <span class="n">glyphMetric</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Save the glyph metric.</span>
+
+<span class="sd">            .. |hmtx| replace::</span>
+<span class="sd">                :class:`fontTools.ttLib.tables._h_m_t_x.table__h_m_t_x`</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                glyphItem (:class:`fontTools.ttLib.tables._g_l_y_f.Glyph`):</span>
+<span class="sd">                    instance</span>
+<span class="sd">                glyphMetric (|hmtx|): hmtx table</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">glyphItem</span><span class="o">.</span><span class="n">numberOfContours</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># Define some attribute</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">width</span> <span class="o">=</span> <span class="n">glyphItem</span><span class="o">.</span><span class="n">xMax</span> <span class="o">-</span> <span class="n">glyphItem</span><span class="o">.</span><span class="n">xMin</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">height</span> <span class="o">=</span> <span class="n">glyphItem</span><span class="o">.</span><span class="n">yMax</span> <span class="o">-</span> <span class="n">glyphItem</span><span class="o">.</span><span class="n">yMin</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">xMax</span> <span class="o">=</span> <span class="n">glyphItem</span><span class="o">.</span><span class="n">xMax</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">yMax</span> <span class="o">=</span> <span class="n">glyphItem</span><span class="o">.</span><span class="n">yMax</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">xMin</span> <span class="o">=</span> <span class="n">glyphItem</span><span class="o">.</span><span class="n">xMin</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">yMin</span> <span class="o">=</span> <span class="n">glyphItem</span><span class="o">.</span><span class="n">yMin</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">width</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">height</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">xMax</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">yMax</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">xMin</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">yMin</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="n">horiBearingY</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">yMax</span>
+        <span class="n">advanceX</span><span class="p">,</span> <span class="n">horiBearingX</span> <span class="o">=</span> <span class="n">glyphMetric</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">offset</span> <span class="o">=</span> <span class="p">(</span><span class="n">horiBearingX</span><span class="p">,</span> <span class="n">horiBearingY</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">height</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hAdvance</span> <span class="o">=</span> <span class="n">advanceX</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">vAdvance</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dataTable</span><span class="p">[</span><span class="s1">&#39;height&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">height</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dataTable</span><span class="p">[</span><span class="s1">&#39;width&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">width</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dataTable</span><span class="p">[</span><span class="s1">&#39;horz_advance&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hAdvance</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dataTable</span><span class="p">[</span><span class="s1">&#39;vAdvance&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vAdvance</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dataTable</span><span class="p">[</span><span class="s1">&#39;index&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">index</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dataTable</span><span class="p">[</span><span class="s1">&#39;offset&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">offset</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dataTable</span><span class="p">[</span><span class="s1">&#39;xMax&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">xMax</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dataTable</span><span class="p">[</span><span class="s1">&#39;xMin&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">xMin</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dataTable</span><span class="p">[</span><span class="s1">&#39;yMax&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">yMax</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dataTable</span><span class="p">[</span><span class="s1">&#39;yMin&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">yMin</span></div>
+
+<div class="viewcode-block" id="Glyph.hasContours"><a class="viewcode-back" href="../../api/index.html#litGL.glyph.Glyph.hasContours">[docs]</a>    <span class="k">def</span> <span class="nf">hasContours</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Return True if the glyph has contours.</span>
+
+<span class="sd">            Returns:</span>
+<span class="sd">                bool: True if the glyph has contours</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">numberOfContours</span> <span class="o">!=</span> <span class="mi">0</span></div>
+
+<div class="viewcode-block" id="Glyph.numContours"><a class="viewcode-back" href="../../api/index.html#litGL.glyph.Glyph.numContours">[docs]</a>    <span class="k">def</span> <span class="nf">numContours</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Return the number of countour lines.</span>
+
+<span class="sd">            Returns:</span>
+<span class="sd">                int: the number of countour lines</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">contours</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Glyph.buildVertices"><a class="viewcode-back" href="../../api/index.html#litGL.glyph.Glyph.buildVertices">[docs]</a>    <span class="k">def</span> <span class="nf">buildVertices</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Build the vertices structured array for the glyph</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vertices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span>
+                <span class="p">[([</span>       <span class="mf">0.0</span><span class="p">,</span>         <span class="mf">0.0</span><span class="p">],</span>  <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">]),</span>
+                <span class="p">([</span> <span class="bp">self</span><span class="o">.</span><span class="n">width</span><span class="p">,</span>         <span class="mf">0.0</span><span class="p">],</span>  <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">]),</span>
+                <span class="p">([</span> <span class="bp">self</span><span class="o">.</span><span class="n">width</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">height</span><span class="p">],</span>  <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">]),</span>
+                <span class="p">([</span>        <span class="mf">0.0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">height</span><span class="p">],</span>  <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">])],</span>
+                <span class="n">dtype</span> <span class="o">=</span> <span class="p">[(</span><span class="s1">&#39;vtx&#39;</span><span class="p">,</span> <span class="s1">&#39;&lt;f4&#39;</span><span class="p">,</span> <span class="p">(</span><span class="mi">2</span><span class="p">,)),</span> <span class="p">(</span><span class="s1">&#39;tex&#39;</span><span class="p">,</span> <span class="s1">&#39;&lt;f4&#39;</span><span class="p">,</span> <span class="p">(</span><span class="mi">2</span><span class="p">,)),</span>
+                    <span class="p">(</span><span class="s1">&#39;gp&#39;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">uint16</span><span class="p">,</span> <span class="p">(</span><span class="mi">4</span><span class="p">,)),</span> <span class="p">(</span><span class="s1">&#39;rgba&#39;</span><span class="p">,</span> <span class="s1">&#39;&lt;f4&#39;</span><span class="p">,</span> <span class="p">(</span><span class="mi">4</span><span class="p">,))])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dataTable</span><span class="p">[</span><span class="s1">&#39;vertices&#39;</span><span class="p">]</span> <span class="o">=</span>  <span class="bp">self</span><span class="o">.</span><span class="n">vertices</span></div>
+
+
+<div class="viewcode-block" id="Glyph.extractContours"><a class="viewcode-back" href="../../api/index.html#litGL.glyph.Glyph.extractContours">[docs]</a>    <span class="k">def</span> <span class="nf">extractContours</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">outlineData</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Extract the glyph outline contours.</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                outlineData (tuple): return value of Glyph.getCoordinates(glyf)</span>
+
+<span class="sd">            Returns:</span>
+<span class="sd">                list: list of strucutured arrays, one for each contour</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">contours</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">coordinates</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">endPtsOfContours</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">flags</span> <span class="o">=</span> <span class="n">outlineData</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">numberOfContours</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">endPtsOfContours</span><span class="p">)</span>
+
+            <span class="n">contours_points</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">coordinates</span>
+            <span class="n">contours</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">endPtsOfContours</span>
+            <span class="n">count</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">numberOfContours</span>
+            <span class="n">flags</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">flags</span>
+
+            <span class="n">start</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">contours</span> <span class="o">=</span> <span class="p">[]</span>
+
+            <span class="k">for</span> <span class="n">end</span> <span class="ow">in</span> <span class="n">contours</span><span class="p">:</span>
+                <span class="n">points</span> <span class="o">=</span> <span class="n">contours_points</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+                <span class="n">tags</span> <span class="o">=</span> <span class="n">flags</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+
+                <span class="c1">## Manage last point</span>
+                <span class="n">tag0</span> <span class="o">=</span> <span class="n">tags</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">tag_last</span> <span class="o">=</span> <span class="n">tags</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+                <span class="k">if</span> <span class="n">tag0</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">FT_CURVE_TAG_CUBIC</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;A contour cannot start with&#39;</span>
+                            <span class="s1">&#39; a cubic control point&#39;</span><span class="p">)</span>
+
+                <span class="c1">#NOTE: cosa vuol dire?</span>
+                <span class="c1"># Start with a CONIC OFF</span>
+                <span class="k">if</span> <span class="n">tag0</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">FT_CURVE_TAG_CONIC</span><span class="p">:</span>
+
+                    <span class="c1"># Start at last point if it is on the curve</span>
+                    <span class="k">if</span> <span class="n">tag_last</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">FT_CURVE_TAG_ON</span><span class="p">:</span>
+                        <span class="n">points</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">points</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+                        <span class="n">tags</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">tags</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="c1"># If both first and last points are conic, start at</span>
+                        <span class="c1"># their middle and record its position for closure</span>
+                        <span class="n">vp</span> <span class="o">=</span> <span class="p">((</span><span class="n">points</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">points</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span>
+                                <span class="p">(</span><span class="n">points</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">points</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+                        <span class="n">points</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">vp</span><span class="p">)</span>
+                        <span class="n">tags</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+                <span class="n">points</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">points</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="n">tags</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tags</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+                <span class="n">outlines</span> <span class="o">=</span> <span class="p">[]</span>
+
+                <span class="n">curve</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">points</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]):</span>
+                    <span class="n">tag</span> <span class="o">=</span> <span class="n">tags</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="n">tag</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">FT_CURVE_TAG_ON</span><span class="p">:</span> <span class="c1"># point on curve</span>
+                        <span class="n">curve</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">curve</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">:</span> <span class="c1"># closed curve</span>
+                            <span class="n">outlines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">curve</span><span class="p">)</span>
+                            <span class="n">curve</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span><span class="p">]</span>
+                        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">points</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+                            <span class="n">curve</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">points</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                            <span class="n">outlines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">curve</span><span class="p">)</span>
+                            <span class="k">break</span>
+                    <span class="k">elif</span> <span class="n">tag</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">FT_CURVE_TAG_CONIC</span><span class="p">:</span>
+                        <span class="c1"># Conic curve off point</span>
+                        <span class="k">if</span> <span class="n">tags</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">FT_CURVE_TAG_ON</span><span class="p">:</span>
+                            <span class="n">curve</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+                        <span class="c1"># Interpolate points</span>
+                        <span class="k">if</span> <span class="n">tags</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">FT_CURVE_TAG_CONIC</span><span class="p">:</span>
+                            <span class="n">vp</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">p</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">points</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]),</span>
+                                    <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">p</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">points</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]))</span>
+                            <span class="n">curve</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+                            <span class="n">curve</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">vp</span><span class="p">)</span>
+                            <span class="n">outlines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">curve</span><span class="p">)</span>
+                            <span class="n">curve</span> <span class="o">=</span> <span class="p">[</span><span class="n">vp</span><span class="p">]</span>
+                    <span class="k">elif</span> <span class="n">tag</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">FT_CURVE_TAG_CUBIC</span><span class="p">:</span>
+                        <span class="n">curve</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">tags</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">FT_CURVE_TAG_ON</span><span class="p">:</span>
+                    <span class="n">curve</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">points</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+                    <span class="n">outlines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">curve</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">contours</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">outlines</span><span class="p">)</span>
+                <span class="n">start</span> <span class="o">=</span> <span class="n">end</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">contours</span></div>
+
+<div class="viewcode-block" id="Glyph.contours2array"><a class="viewcode-back" href="../../api/index.html#litGL.glyph.Glyph.contours2array">[docs]</a>    <span class="k">def</span> <span class="nf">contours2array</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">xs</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">ys</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Convert list of outlines to a structured array.</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                x0 (float): x offset</span>
+<span class="sd">                y0 (float): y offset</span>
+<span class="sd">                xs (float): x scale</span>
+<span class="sd">                ys (float): y scale</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">bezierCount</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">scale</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">buildOutlineArray</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">contours</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="p">,</span> <span class="n">xs</span><span class="p">,</span> <span class="n">ys</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dataTable</span><span class="p">[</span><span class="s1">&#39;scale&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">scale</span></div>
+
+<div class="viewcode-block" id="Glyph.buildOutlineArray"><a class="viewcode-back" href="../../api/index.html#litGL.glyph.Glyph.buildOutlineArray">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">buildOutlineArray</span><span class="p">(</span><span class="n">contours</span><span class="p">,</span> <span class="n">x0</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">y0</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">xs</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">ys</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Convert list of outlines to a structured array</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                contours(list): list of outline contour</span>
+<span class="sd">                x0 (float): x offset</span>
+<span class="sd">                y0 (float): y offset</span>
+<span class="sd">                xs (float): x scale</span>
+<span class="sd">                ys (float): y scale</span>
+
+<span class="sd">            Returns:</span>
+<span class="sd">                tuple: content:</span>
+<span class="sd">                       - list of bezier curves,</span>
+<span class="sd">                       - number of bezier curves,</span>
+<span class="sd">                       - scale factor</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">bezier_dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">([(</span><span class="s1">&#39;p1&#39;</span><span class="p">,</span> <span class="s1">&#39;f4&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="s1">&#39;p2&#39;</span><span class="p">,</span> <span class="s1">&#39;f4&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+                <span class="p">(</span><span class="s1">&#39;p3&#39;</span><span class="p">,</span> <span class="s1">&#39;f4&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="s1">&#39;p4&#39;</span><span class="p">,</span> <span class="s1">&#39;f4&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)])</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">bezierCount</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="n">shift</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="n">scale</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">xs</span><span class="p">,</span> <span class="n">ys</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">contours</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">contour</span> <span class="ow">in</span> <span class="n">contours</span><span class="p">:</span>
+                <span class="n">bezierCount</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">contour</span><span class="p">))</span>
+                <span class="n">base</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">contour</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">bezier_dtype</span><span class="p">)</span>
+                <span class="n">base</span><span class="o">.</span><span class="n">fill</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">item</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">contour</span><span class="p">):</span>
+                    <span class="n">base</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="s1">&#39;p1&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">item</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="n">base</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="s1">&#39;p4&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">item</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">item</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">3</span><span class="p">:</span>
+                        <span class="n">base</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="s1">&#39;p2&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">item</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">item</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+                        <span class="n">base</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="s1">&#39;p3&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">item</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">item</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                        <span class="n">base</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="s1">&#39;p2&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">base</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="s1">&#39;p1&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="n">base</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="s1">&#39;p4&#39;</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span>
+                <span class="n">base</span><span class="p">[</span><span class="s1">&#39;p1&#39;</span><span class="p">]</span> <span class="o">-=</span> <span class="n">shift</span>
+                <span class="n">base</span><span class="p">[</span><span class="s1">&#39;p2&#39;</span><span class="p">]</span> <span class="o">-=</span> <span class="n">shift</span>
+                <span class="n">base</span><span class="p">[</span><span class="s1">&#39;p3&#39;</span><span class="p">]</span> <span class="o">-=</span> <span class="n">shift</span>
+                <span class="n">base</span><span class="p">[</span><span class="s1">&#39;p4&#39;</span><span class="p">]</span> <span class="o">-=</span> <span class="n">shift</span>
+                <span class="n">base</span><span class="p">[</span><span class="s1">&#39;p1&#39;</span><span class="p">]</span> <span class="o">/=</span> <span class="n">scale</span>
+                <span class="n">base</span><span class="p">[</span><span class="s1">&#39;p2&#39;</span><span class="p">]</span> <span class="o">/=</span> <span class="n">scale</span>
+                <span class="n">base</span><span class="p">[</span><span class="s1">&#39;p3&#39;</span><span class="p">]</span> <span class="o">/=</span> <span class="n">scale</span>
+                <span class="n">base</span><span class="p">[</span><span class="s1">&#39;p4&#39;</span><span class="p">]</span> <span class="o">/=</span> <span class="n">scale</span>
+                <span class="n">data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">base</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">data</span><span class="p">,</span> <span class="n">bezierCount</span><span class="p">,</span> <span class="n">scale</span></div></div>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../index.html">
+              <img class="logo" src="../../_static/ogs.png" alt="Logo"/>
+            </a></p>
+<h3><a href="../../index.html">Table of Contents</a></h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api/index.html">litGL package reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../credits.html">Credits</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../license.html">License</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../changes.html">Changes</a></li>
+</ul>
+
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">litGL 1.0.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">litGL.glyph</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2020-2021, Nicola Creati, Roberto Vidmar.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.0.
+    </div>
+  </body>
+</html>

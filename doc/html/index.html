@@ -1,0 +1,193 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>litGL Description &#8212; litGL 1.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css" />
+    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="litGL package reference" href="api/index.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="api/index.html" title="litGL package reference"
+             accesskey="N">next</a> |</li>
+        <li class="nav-item nav-item-0"><a href="#">litGL 1.0.0 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">litGL Description</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="project-description">
+<h1><a class="reference external" href="index.html">litGL</a> Description<a class="headerlink" href="#project-description" title="Permalink to this headline">¶</a></h1>
+<p><a class="reference external" href="index.html">litGL</a> (<strong>lit</strong>ographic  <strong>G</strong>raphics <strong>L</strong>ibrary) is a Python
+package containing the modules needed to render text to the screen in an
+<a class="reference external" href="https://opengl.org">OpenGL</a> window.</p>
+<p>It relays on the rendering of the Bezier curves that define the outlines of
+each character. It is partially based on the
+<a class="reference external" href="https://sluglibrary.com/">SLUG</a> alghoritm described in some public
+documents. Unlike common methods based on the rendering of the raster version
+of each glyph, the quality of the glyphs is not affected by the level of
+zoom and preserves its accuracy at almost all scales.</p>
+<p><a class="reference external" href="index.html">litGL</a> cannot use directly TrueType/OpenType font files to render
+characters on the fly, it needs to analyze them first to create
+a data structure suitable for the <a class="reference external" href="https://opengl.org">OpenGL</a> rendering. This process is done
+automatically by the
+(<a class="reference internal" href="api/index.html#module-litGL.fontDistiller" title="litGL.fontDistiller"><code class="xref py py-class docutils literal notranslate"><span class="pre">litGL.fontDistiller</span></code></a>) module that interprets the TrueType/OpenType
+font file and creates an output file that contains all the information
+needed by <a class="reference external" href="index.html">litGL</a> to render any glyph defined herein. The output of the
+<cite>distillation</cite> process is a standard Python dictionary serialized with
+the pickle module and gzipped.</p>
+<p>The <a class="reference internal" href="api/index.html#litGL.label.Label" title="litGL.label.Label"><code class="xref py py-class docutils literal notranslate"><span class="pre">litGL.label.Label</span></code></a> class is in charge of rendering any text string
+in an <a class="reference external" href="https://opengl.org">OpenGL</a> context using the distilled font file.</p>
+<p><a class="reference external" href="index.html">litGL</a> is hosted on <a class="reference external" href="https://bitbucket.org/ncreati/litGL">Bitbucket</a>.</p>
+<section id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h2>
+<p>Install <a class="reference external" href="index.html">litGL</a> from <a class="reference external" href="https://pypi.org/">PyPi</a> (recommended) with:</p>
+<pre class="literal-block">$ pip3 install litgl</pre>
+<p>To install <a class="reference external" href="index.html">litGL</a> from <a class="reference external" href="https://bitbucket.org/ncreati/litGL">Bitbucket</a>:</p>
+<pre class="literal-block">$ pip3 install git+https://bitbucket.org/ncreati/litGL</pre>
+</section>
+<section id="usage">
+<h2>Usage<a class="headerlink" href="#usage" title="Permalink to this headline">¶</a></h2>
+<p>Usage examples of <a class="reference external" href="index.html">litGL</a> can be found in the <a class="reference internal" href="examples.html"><span class="doc">Examples</span></a> section.</p>
+</section>
+<section id="contents">
+<h2>Contents:<a class="headerlink" href="#contents" title="Permalink to this headline">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/index.html">litGL package reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/index.html#module-litGL.fontDistiller"><code class="xref py py-mod docutils literal notranslate"><span class="pre">litGL.fontDistiller</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/index.html#module-litGL.font"><code class="xref py py-mod docutils literal notranslate"><span class="pre">litGL.font</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/index.html#module-litGL.glsl_base"><code class="xref py py-mod docutils literal notranslate"><span class="pre">litGL.glsl_base</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/index.html#module-litGL.glsl_base_c"><code class="xref py py-mod docutils literal notranslate"><span class="pre">litGL.glsl_base_c</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/index.html#module-litGL.glsl_bitmap"><code class="xref py py-mod docutils literal notranslate"><span class="pre">litGL.glsl_bitmap</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/index.html#module-litGL.glsl_color"><code class="xref py py-mod docutils literal notranslate"><span class="pre">litGL.glsl_color</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/index.html#module-litGL.label"><code class="xref py py-mod docutils literal notranslate"><span class="pre">litGL.label</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/index.html#module-litGL.dlabel"><code class="xref py py-mod docutils literal notranslate"><span class="pre">litGL.dlabel</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/index.html#module-litGL.mesh"><code class="xref py py-mod docutils literal notranslate"><span class="pre">litGL.mesh</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/index.html#module-litGL.glyph"><code class="xref py py-mod docutils literal notranslate"><span class="pre">litGL.glyph</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/index.html#module-litGL.shader"><code class="xref py py-mod docutils literal notranslate"><span class="pre">litGL.shader</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/index.html#module-litGL.texture"><code class="xref py py-mod docutils literal notranslate"><span class="pre">litGL.texture</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="examples.html#examples-example1"><code class="xref py py-mod docutils literal notranslate"><span class="pre">examples.example1</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples.html#examples-example2"><code class="xref py py-mod docutils literal notranslate"><span class="pre">examples.example2</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples.html#examples-example3"><code class="xref py py-mod docutils literal notranslate"><span class="pre">examples.example3</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples.html#examples-example4"><code class="xref py py-mod docutils literal notranslate"><span class="pre">examples.example4</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples.html#examples-example5"><code class="xref py py-mod docutils literal notranslate"><span class="pre">examples.example5</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="credits.html">Credits</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="credits.html#id1">Nicola Creati</a></li>
+<li class="toctree-l2"><a class="reference internal" href="credits.html#id2">Roberto Vidmar</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="license.html">License</a></li>
+<li class="toctree-l1"><a class="reference internal" href="changes.html">Changes</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="changes.html#version-1-0-0">Version 1.0.0</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+</section>
+<section id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h1>
+<ul class="simple">
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
+<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
+<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
+</ul>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="#">
+              <img class="logo" src="_static/ogs.png" alt="Logo"/>
+            </a></p>
+<h3><a href="#">Table of Contents</a></h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/index.html">litGL package reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="credits.html">Credits</a></li>
+<li class="toctree-l1"><a class="reference internal" href="license.html">License</a></li>
+<li class="toctree-l1"><a class="reference internal" href="changes.html">Changes</a></li>
+</ul>
+
+  <h4>Next topic</h4>
+  <p class="topless"><a href="api/index.html"
+                        title="next chapter">litGL package reference</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/index.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="api/index.html" title="litGL package reference"
+             >next</a> |</li>
+        <li class="nav-item nav-item-0"><a href="#">litGL 1.0.0 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">litGL Description</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2020-2021, Nicola Creati, Roberto Vidmar.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.0.
+    </div>
+  </body>
+</html>

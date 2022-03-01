@@ -1,0 +1,721 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>litGL.label &#8212; litGL 1.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css" />
+    
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">litGL 1.0.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">litGL.label</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for litGL.label</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot; A class that implements static string (text) rendering with OpenGL.</span>
+
+<span class="sd">    Author:</span>
+<span class="sd">        - 2020-2021 Nicola Creati</span>
+
+<span class="sd">        - 2020-2021 Roberto Vidmar</span>
+
+<span class="sd">    Copyright:</span>
+<span class="sd">        2020-2021 Nicola Creati &lt;ncreati@inogs.it&gt;</span>
+
+<span class="sd">        2020-2021 Roberto Vidmar &lt;rvidmar@inogs.it&gt;</span>
+
+<span class="sd">    License:</span>
+<span class="sd">        MIT/X11 License (see</span>
+<span class="sd">        :download:`license.txt &lt;../../../license.txt&gt;`)</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">OpenGL.GL</span> <span class="k">as</span> <span class="nn">gl</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">glm</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">import</span> <span class="nn">unicodedata</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">Counter</span>
+<span class="n">np</span><span class="o">.</span><span class="n">set_printoptions</span><span class="p">(</span><span class="n">suppress</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="c1"># Local imports</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">namedLogger</span><span class="p">,</span> <span class="n">glsl_base</span><span class="p">,</span> <span class="n">glsl_color</span><span class="p">,</span> <span class="n">glsl_bitmap</span>
+<span class="kn">from</span> <span class="nn">.shader</span> <span class="kn">import</span> <span class="n">Shader</span>
+<span class="kn">from</span> <span class="nn">.font</span> <span class="kn">import</span> <span class="n">Font</span>
+<span class="kn">from</span> <span class="nn">.mesh</span> <span class="kn">import</span> <span class="n">Mesh</span>
+<span class="kn">from</span> <span class="nn">.fontDistiller</span> <span class="kn">import</span> <span class="n">GlyphTypes</span>
+
+<span class="c1"># -----------------------------------------------------------------------------</span>
+<div class="viewcode-block" id="countInSet"><a class="viewcode-back" href="../../api/index.html#litGL.label.countInSet">[docs]</a><span class="k">def</span> <span class="nf">countInSet</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">aSet</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; Return sum of all occurrencies of any character in `aSet` in</span>
+<span class="sd">        string s.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            s (str): input string</span>
+<span class="sd">            aSet (iterable): characters to sesrch for</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            int: Return sum of all occurrencies of any character in `aSet` in</span>
+<span class="sd">                string s.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">Counter</span><span class="p">(</span><span class="n">a</span><span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">aSet</span><span class="p">)</span></div>
+
+<span class="c1"># =============================================================================</span>
+<div class="viewcode-block" id="Transform"><a class="viewcode-back" href="../../api/index.html#litGL.label.Transform">[docs]</a><span class="k">class</span> <span class="nc">Transform</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot; Transformation matrix with shear and stretch. Tansformation order is</span>
+<span class="sd">        translation * scaling * rotation.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+<div class="viewcode-block" id="Transform.__init__"><a class="viewcode-back" href="../../api/index.html#litGL.label.Transform.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                <span class="n">pos</span><span class="o">=</span><span class="n">glm</span><span class="o">.</span><span class="n">vec3</span><span class="p">(</span><span class="mf">0.0</span><span class="p">),</span>
+                <span class="n">rot</span><span class="o">=</span><span class="n">glm</span><span class="o">.</span><span class="n">quat</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+                <span class="n">scale</span><span class="o">=</span><span class="n">glm</span><span class="o">.</span><span class="n">vec3</span><span class="p">(</span><span class="mf">1.0</span><span class="p">),</span>
+                <span class="n">shear</span><span class="o">=</span><span class="n">glm</span><span class="o">.</span><span class="n">vec3</span><span class="p">(</span><span class="mf">0.0</span><span class="p">),</span>
+                <span class="n">stretch</span><span class="o">=</span><span class="n">glm</span><span class="o">.</span><span class="n">vec3</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)):</span>
+        <span class="sd">&quot;&quot;&quot; Create new instance.</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                pos (:class:`glm.vec3`): OpenGL postition x, y, z</span>
+<span class="sd">                rot (:class:`glm.quat`): OpenGL rotation quaternion w, x, y, z</span>
+<span class="sd">                scale (:class:`glm.vec3`): scaling in x, y, z</span>
+<span class="sd">                shear (:class:`glm.vec3`): shear in x, y, z</span>
+<span class="sd">                stretch (:class:`glm.vec3`): stretch in x, y, z</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pos</span> <span class="o">=</span> <span class="n">pos</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rot</span> <span class="o">=</span> <span class="n">rot</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scale</span> <span class="o">=</span> <span class="n">scale</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">shear</span> <span class="o">=</span> <span class="n">shear</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stretch</span> <span class="o">=</span> <span class="n">stretch</span></div>
+
+<div class="viewcode-block" id="Transform.setScale"><a class="viewcode-back" href="../../api/index.html#litGL.label.Transform.setScale">[docs]</a>    <span class="k">def</span> <span class="nf">setScale</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sx</span><span class="p">,</span> <span class="n">sy</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sz</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Set scaling factors.</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                sx (float): x scaling</span>
+<span class="sd">                sy (float): y scaling</span>
+<span class="sd">                sz (float): z scaling</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">sy</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">sy</span> <span class="o">=</span> <span class="n">sx</span>
+        <span class="k">if</span> <span class="n">sz</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">sz</span> <span class="o">=</span> <span class="n">sx</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scale</span> <span class="o">=</span> <span class="n">glm</span><span class="o">.</span><span class="n">vec3</span><span class="p">(</span><span class="n">sx</span><span class="p">,</span> <span class="n">sy</span><span class="p">,</span> <span class="n">sz</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Transform.setPos"><a class="viewcode-back" href="../../api/index.html#litGL.label.Transform.setPos">[docs]</a>    <span class="k">def</span> <span class="nf">setPos</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pos</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Set transform position.</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                pos (:class:`glm.vec3`): transform position</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pos</span> <span class="o">=</span> <span class="n">pos</span></div>
+
+<div class="viewcode-block" id="Transform.setRot"><a class="viewcode-back" href="../../api/index.html#litGL.label.Transform.setRot">[docs]</a>    <span class="k">def</span> <span class="nf">setRot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rot</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Set rotation quaternion.</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                pos (:class:`glm.quat`): rotation quaternion</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rot</span> <span class="o">=</span> <span class="n">rot</span></div>
+
+<div class="viewcode-block" id="Transform.setShear"><a class="viewcode-back" href="../../api/index.html#litGL.label.Transform.setShear">[docs]</a>    <span class="k">def</span> <span class="nf">setShear</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">z</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Set shear vector.</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                x (float): x shear</span>
+<span class="sd">                y (float): y shear</span>
+<span class="sd">                z (float): z shear</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">shear</span> <span class="o">=</span> <span class="n">glm</span><span class="o">.</span><span class="n">vec3</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span><span class="n">z</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Transform.setStretch"><a class="viewcode-back" href="../../api/index.html#litGL.label.Transform.setStretch">[docs]</a>    <span class="k">def</span> <span class="nf">setStretch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">z</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Set stretch vector.</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                x (float): x stretch</span>
+<span class="sd">                y (float): y stretch</span>
+<span class="sd">                z (float): z stretch</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stretch</span> <span class="o">=</span> <span class="n">glm</span><span class="o">.</span><span class="n">vec3</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span><span class="n">z</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Transform.getTransformation"><a class="viewcode-back" href="../../api/index.html#litGL.label.Transform.getTransformation">[docs]</a>    <span class="k">def</span> <span class="nf">getTransformation</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Return transformation matrix i.e. (translationMatrix</span>
+<span class="sd">            * scaleMatrix * rotationMatrix * stretchMatrix * shearMatrix)</span>
+
+<span class="sd">            Returns:</span>
+<span class="sd">                :class:`glm.mat4x4`: transformation matrix</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">translationMatrix</span> <span class="o">=</span> <span class="n">glm</span><span class="o">.</span><span class="n">translate</span><span class="p">(</span><span class="n">glm</span><span class="o">.</span><span class="n">mat4</span><span class="p">(</span><span class="mf">1.0</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">pos</span><span class="p">)</span>
+        <span class="n">rot</span> <span class="o">=</span> <span class="n">glm</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rot</span><span class="p">)</span>
+        <span class="n">rotationMatrix</span> <span class="o">=</span> <span class="n">glm</span><span class="o">.</span><span class="n">rotate</span><span class="p">(</span><span class="n">glm</span><span class="o">.</span><span class="n">mat4</span><span class="p">(</span><span class="mf">1.0</span><span class="p">),</span> <span class="n">glm</span><span class="o">.</span><span class="n">angle</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rot</span><span class="p">),</span>
+                <span class="n">glm</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rot</span><span class="p">))</span>
+        <span class="n">scaleMatrix</span> <span class="o">=</span> <span class="n">glm</span><span class="o">.</span><span class="n">scale</span><span class="p">(</span><span class="n">glm</span><span class="o">.</span><span class="n">mat4</span><span class="p">(</span><span class="mf">1.0</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="p">)</span>
+
+        <span class="c1"># Python glm has no shear matrix transformation</span>
+        <span class="n">shearMatrix</span> <span class="o">=</span> <span class="n">glm</span><span class="o">.</span><span class="n">mat4</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)</span>
+        <span class="n">shearMatrix</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">shear</span><span class="o">.</span><span class="n">x</span>
+        <span class="n">shearMatrix</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">shear</span><span class="o">.</span><span class="n">y</span>
+
+        <span class="c1"># Stretching matrix</span>
+        <span class="n">stretchMatrix</span> <span class="o">=</span> <span class="n">glm</span><span class="o">.</span><span class="n">mat4</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)</span>
+        <span class="n">stretchMatrix</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stretch</span><span class="o">.</span><span class="n">y</span>
+        <span class="n">stretchMatrix</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stretch</span><span class="o">.</span><span class="n">x</span>
+
+        <span class="k">return</span> <span class="p">(</span><span class="n">translationMatrix</span> <span class="o">*</span> <span class="n">scaleMatrix</span> <span class="o">*</span> <span class="n">rotationMatrix</span>
+                <span class="o">*</span> <span class="n">stretchMatrix</span> <span class="o">*</span> <span class="n">shearMatrix</span><span class="p">)</span></div></div>
+
+<span class="c1"># =============================================================================</span>
+<div class="viewcode-block" id="Label"><a class="viewcode-back" href="../../api/index.html#litGL.label.Label">[docs]</a><span class="k">class</span> <span class="nc">Label</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot; A class that implements string (text) rendering with OpenGL.</span>
+
+<span class="sd">        The text **can not** be modified.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">DEFAULT_FONT</span> <span class="o">=</span> <span class="s2">&quot;LiberationSans-Regular.nbf&quot;</span>
+    <span class="n">PIXEL_UNITS</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">POINT_UNITS</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">NO_GLYPH_CHARS</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">, &quot;</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)</span>
+    <span class="s2">&quot;These characters have no corresponding glyphs.&quot;</span>
+    <span class="n">DPI</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="s2">&quot;Dot per inch. Must be set.&quot;</span>
+    <span class="n">Y_POINTS_UP</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="s2">&quot;Y axis points up if True.&quot;</span>
+
+<div class="viewcode-block" id="Label.__init__"><a class="viewcode-back" href="../../api/index.html#litGL.label.Label.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">,</span> <span class="n">pos</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">anchor</span><span class="o">=</span><span class="s1">&#39;ll&#39;</span><span class="p">,</span>
+            <span class="n">size</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span>
+            <span class="n">sizeUnits</span><span class="o">=</span><span class="n">POINT_UNITS</span><span class="p">,</span>
+            <span class="n">color</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
+            <span class="n">dpi</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">yPointsUp</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">font_file</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">angle</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span>
+            <span class="n">glyphs</span><span class="o">=</span><span class="n">GlyphTypes</span><span class="o">.</span><span class="n">BASE</span><span class="p">,</span>
+            <span class="n">filterControl</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sa">r</span><span class="sd">&quot;&quot;&quot; Create new instance</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                text (str): text pos (tuple): x, y position in</span>
+<span class="sd">                    *window coordinates*.</span>
+<span class="sd">                anchor (str): optional anchor position in</span>
+<span class="sd">                    ::</span>
+
+<span class="sd">                           ul         uc          ur</span>
+<span class="sd">                            +----------+----------+</span>
+<span class="sd">                            |                     |</span>
+<span class="sd">                         cl +         cc          + cr</span>
+<span class="sd">                            |                     |</span>
+<span class="sd">                            +----------+----------+</span>
+<span class="sd">                           ll         lc          lr</span>
+
+<span class="sd">                        Default is `ll` (lower left).</span>
+
+<span class="sd">                size (float): text size (point size or pixel size)</span>
+<span class="sd">                sizeUnits (int): any of (</span>
+<span class="sd">                    :class:`litGL.label.Label.PIXEL_UNITS`,</span>
+<span class="sd">                    :class:`litGL.label.Label.POINT_UNITS`)</span>
+<span class="sd">                color (tuple): r, g, b, a in range [0, 1].</span>
+<span class="sd">                    Alpha value is used also to set transparency of colored</span>
+<span class="sd">                    fonts (enabled setting `glyphs` argument with</span>
+<span class="sd">                    any value except</span>
+<span class="sd">                    :class:`litGL.fontDistiller.GlyphTypes.BASE`)</span>
+<span class="sd">                dpi (float): set dot per inch screen resolution for this</span>
+<span class="sd">                    instance.</span>
+
+<span class="sd">                    - if dpi is None instance will use class</span>
+<span class="sd">                      attribute DPI instead.</span>
+
+<span class="sd">                    - else sets also class attribute DPI if unset.</span>
+<span class="sd">                yPointsUp(bool): set Y axis orientation: True means</span>
+<span class="sd">                    y axis points up</span>
+<span class="sd">                font_file (str): font file (must be an **.nbf** distilled file)</span>
+<span class="sd">                angle (float): rotation angle from x axis, positive</span>
+<span class="sd">                    anti-clockwise</span>
+<span class="sd">                glyphs (:class:`litGL.fontDistiller.GlyphTypes`): glyph type</span>
+<span class="sd">                filterControl (bool): remove control characters (characters</span>
+<span class="sd">                    in range [0, 31] except &#39;\\n&#39;) from text</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">namedLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">dpi</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">Label</span><span class="o">.</span><span class="n">DPI</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">Label</span><span class="o">.</span><span class="n">DPI</span> <span class="o">=</span> <span class="n">dpi</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">DPI</span> <span class="o">=</span> <span class="n">dpi</span>
+        <span class="k">if</span> <span class="n">yPointsUp</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">Label</span><span class="o">.</span><span class="n">Y_POINTS_UP</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">Label</span><span class="o">.</span><span class="n">Y_POINTS_UP</span> <span class="o">=</span> <span class="n">yPointsUp</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">Y_POINTS_UP</span> <span class="o">=</span> <span class="n">yPointsUp</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">color</span> <span class="o">=</span> <span class="n">color</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">glyphs</span> <span class="o">=</span> <span class="n">glyphs</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">filterControl</span> <span class="o">=</span> <span class="n">filterControl</span>
+
+        <span class="c1"># Model matrix</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transform</span> <span class="o">=</span> <span class="n">Transform</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">font_file</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">font_file</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="n">Label</span><span class="o">.</span><span class="n">DEFAULT_FONT</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">font</span> <span class="o">=</span> <span class="n">Font</span><span class="p">(</span><span class="n">font_file</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lineWidth</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_labelWidth</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_labelHeight</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">font</span><span class="o">.</span><span class="n">table</span><span class="p">[</span><span class="s1">&#39;linespace&#39;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">setSize</span><span class="p">(</span><span class="n">size</span><span class="p">,</span> <span class="n">sizeUnits</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_baseInd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">allVertices</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">allIndices</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">extracted</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="c1"># Offet, kerning, next_char_shift</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_string_metric</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="c1"># Set text</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">filterControl</span><span class="p">:</span>
+            <span class="n">text</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_filterControl</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">shader</span> <span class="o">=</span> <span class="n">Shader</span><span class="o">.</span><span class="n">fromString</span><span class="p">(</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_getShaderCode</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_setText</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_setMesh</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">Transform</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">setPos</span><span class="p">(</span><span class="o">*</span><span class="n">pos</span><span class="p">,</span> <span class="n">anchor</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">setRotation</span><span class="p">(</span><span class="n">angle</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_filterControl</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">):</span>
+        <span class="c1"># Remove control characters</span>
+        <span class="k">return</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">ch</span> <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="n">text</span> <span class="k">if</span> <span class="n">ch</span> <span class="o">==</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span> <span class="ow">or</span> <span class="p">(</span><span class="nb">ord</span><span class="p">(</span><span class="n">ch</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">31</span><span class="p">))</span>
+
+<div class="viewcode-block" id="Label._getShaderCode"><a class="viewcode-back" href="../../api/index.html#litGL.label.Label._getShaderCode">[docs]</a>    <span class="k">def</span> <span class="nf">_getShaderCode</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Return shader codes</span>
+
+<span class="sd">            Returns:</span>
+<span class="sd">                tuple: vertex shader, fragment shader codes</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">glyphs</span> <span class="o">==</span> <span class="n">GlyphTypes</span><span class="o">.</span><span class="n">BASE</span><span class="p">:</span>
+            <span class="n">shaders</span> <span class="o">=</span> <span class="p">(</span><span class="n">glsl_base</span><span class="o">.</span><span class="n">VERTEX_SHADER</span><span class="p">,</span> <span class="n">glsl_base</span><span class="o">.</span><span class="n">FRAGMENT_SHADER</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">glyphs</span> <span class="o">==</span> <span class="n">GlyphTypes</span><span class="o">.</span><span class="n">LAYER_COLOR</span><span class="p">:</span>
+             <span class="n">shaders</span> <span class="o">=</span> <span class="p">(</span><span class="n">glsl_color</span><span class="o">.</span><span class="n">VERTEX_SHADER</span><span class="p">,</span> <span class="n">glsl_color</span><span class="o">.</span><span class="n">FRAGMENT_SHADER</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">glyphs</span> <span class="ow">in</span> <span class="p">(</span>
+                <span class="n">GlyphTypes</span><span class="o">.</span><span class="n">CBDT_COLOR</span><span class="p">,</span> <span class="n">GlyphTypes</span><span class="o">.</span><span class="n">EBDT_COLOR</span><span class="p">):</span>
+             <span class="n">shaders</span> <span class="o">=</span> <span class="p">(</span><span class="n">glsl_bitmap</span><span class="o">.</span><span class="n">VERTEX_SHADER</span><span class="p">,</span> <span class="n">glsl_bitmap</span><span class="o">.</span><span class="n">FRAGMENT_SHADER</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Invalid glyphs code (</span><span class="si">%d</span><span class="s2">).&quot;</span> <span class="o">%</span> <span class="n">glyphs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">shaders</span></div>
+
+<div class="viewcode-block" id="Label._setMesh"><a class="viewcode-back" href="../../api/index.html#litGL.label.Label._setMesh">[docs]</a>    <span class="k">def</span> <span class="nf">_setMesh</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Set Mesh arrays.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">([(</span><span class="s1">&#39;vtx&#39;</span><span class="p">,</span> <span class="s1">&#39;&lt;f4&#39;</span><span class="p">,</span> <span class="p">(</span><span class="mi">2</span><span class="p">,)),</span> <span class="p">(</span><span class="s1">&#39;tex&#39;</span><span class="p">,</span> <span class="s1">&#39;&lt;f4&#39;</span><span class="p">,</span> <span class="p">(</span><span class="mi">2</span><span class="p">,)),</span>
+            <span class="p">(</span><span class="s1">&#39;gp&#39;</span><span class="p">,</span> <span class="s1">&#39;&lt;u2&#39;</span><span class="p">,</span> <span class="p">(</span><span class="mi">4</span><span class="p">,)),</span> <span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mesh</span> <span class="o">=</span> <span class="n">Mesh</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">),</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">rebuild</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">allVertices</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">allIndices</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Label.nextCharLowerLeft"><a class="viewcode-back" href="../../api/index.html#litGL.label.Label.nextCharLowerLeft">[docs]</a>    <span class="k">def</span> <span class="nf">nextCharLowerLeft</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Return next character lower left position (in window</span>
+<span class="sd">            coordinates) according to current metric.</span>
+
+<span class="sd">            Returns:</span>
+<span class="sd">                tuple: next character lower left x, y position</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">pmodel</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">pos</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="o">.</span><span class="n">scale</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="o">.</span><span class="n">pos</span> <span class="o">+</span> <span class="n">pmodel</span>
+        <span class="n">y</span> <span class="o">+=</span> <span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">font</span><span class="o">.</span><span class="n">table</span><span class="p">[</span><span class="s1">&#39;ascent&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_sign</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_labelHeight</span><span class="p">)</span>
+                <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="o">.</span><span class="n">scale</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">x</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_string_metric</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">2</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="o">.</span><span class="n">scale</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span></div>
+
+<div class="viewcode-block" id="Label.setShear"><a class="viewcode-back" href="../../api/index.html#litGL.label.Label.setShear">[docs]</a>    <span class="k">def</span> <span class="nf">setShear</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Set shear vector.</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                x (float): x shear</span>
+<span class="sd">                y (float): y shear</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="o">.</span><span class="n">setShear</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Label.setStretch"><a class="viewcode-back" href="../../api/index.html#litGL.label.Label.setStretch">[docs]</a>    <span class="k">def</span> <span class="nf">setStretch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Set stretch vector.</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                x (float): x stretch</span>
+<span class="sd">                y (float): y stretch</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="o">.</span><span class="n">setStretch</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Label.setSize"><a class="viewcode-back" href="../../api/index.html#litGL.label.Label.setSize">[docs]</a>    <span class="k">def</span> <span class="nf">setSize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">units</span><span class="o">=</span><span class="n">POINT_UNITS</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Size can be expressed in pixel or point units.</span>
+<span class="sd">            This will be the size at 0 zoom level and without window resizing.</span>
+
+<span class="sd">            :class:`Label.PIXEL_UNITS`: Size is calculated according to</span>
+<span class="sd">                the maximum range along x and y (bounding box metrics)</span>
+<span class="sd">                of the passed string.</span>
+<span class="sd">            :class:`Label.POINT_UNITS`: Size is calculated according to</span>
+<span class="sd">                the freetype formula to convert points units to pixels.</span>
+<span class="sd">                It depends on the screen dpi that must be supplied at</span>
+<span class="sd">                initialization.</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                size (float): character size in `units`</span>
+<span class="sd">                units (int): :class:`Label.POINT_UNITS` or</span>
+<span class="sd">                    :class:`Label.PIXEL_UNITS`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="n">units</span> <span class="ow">in</span> <span class="p">(</span><span class="n">Label</span><span class="o">.</span><span class="n">PIXEL_UNITS</span><span class="p">,</span> <span class="n">Label</span><span class="o">.</span><span class="n">POINT_UNITS</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">Y_POINTS_UP</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">y_sign</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">y_sign</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+        <span class="k">if</span> <span class="n">units</span> <span class="o">==</span> <span class="n">Label</span><span class="o">.</span><span class="n">PIXEL_UNITS</span><span class="p">:</span>
+            <span class="n">scale</span> <span class="o">=</span> <span class="n">size</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">font</span><span class="o">.</span><span class="n">table</span><span class="p">[</span><span class="s1">&#39;units_per_EM&#39;</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">scale</span> <span class="o">=</span> <span class="n">size</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">DPI</span> <span class="o">/</span> <span class="p">(</span>
+                    <span class="mi">72</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">font</span><span class="o">.</span><span class="n">table</span><span class="p">[</span><span class="s1">&#39;units_per_EM&#39;</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="o">.</span><span class="n">setScale</span><span class="p">(</span><span class="n">scale</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_sign</span> <span class="o">*</span> <span class="n">scale</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">=</span> <span class="n">size</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sizeUnits</span> <span class="o">=</span> <span class="n">units</span></div>
+
+<div class="viewcode-block" id="Label.boundingBox"><a class="viewcode-back" href="../../api/index.html#litGL.label.Label.boundingBox">[docs]</a>    <span class="k">def</span> <span class="nf">boundingBox</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Return the label bounding box for the **un**-rotated text.</span>
+
+<span class="sd">            Returns:</span>
+<span class="sd">                tuple: xmin, xmax, ymin, ymax (window coordinates)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">pmodel</span> <span class="o">=</span> <span class="p">(</span><span class="n">glm</span><span class="o">.</span><span class="n">vec3</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">y_sign</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+                <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">pos</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="o">.</span><span class="n">scale</span><span class="p">)</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="o">.</span><span class="n">pos</span> <span class="o">+</span> <span class="n">pmodel</span>
+        <span class="n">y</span> <span class="o">+=</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">y_sign</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">font</span><span class="o">.</span><span class="n">table</span><span class="p">[</span><span class="s1">&#39;ascent&#39;</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="o">.</span><span class="n">scale</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pixwidth</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">pixheight</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Label.pixheight"><a class="viewcode-back" href="../../api/index.html#litGL.label.Label.pixheight">[docs]</a>    <span class="k">def</span> <span class="nf">pixheight</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Return label height in pixels (screen coordinates).</span>
+
+<span class="sd">            Returns:</span>
+<span class="sd">                float: label height in pixels</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_labelHeight</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_sign</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="o">.</span><span class="n">scale</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="Label.pixwidth"><a class="viewcode-back" href="../../api/index.html#litGL.label.Label.pixwidth">[docs]</a>    <span class="k">def</span> <span class="nf">pixwidth</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Return label width in pixels (screen coordinates).</span>
+
+<span class="sd">            Returns:</span>
+<span class="sd">                float: label width in pixels</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_labelWidth</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="o">.</span><span class="n">scale</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="Label.setPos"><a class="viewcode-back" href="../../api/index.html#litGL.label.Label.setPos">[docs]</a>    <span class="k">def</span> <span class="nf">setPos</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">anchor</span><span class="o">=</span><span class="s1">&#39;ll&#39;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Set text position in **screen coordinates**.</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                x (float): x position in *screen coordinates*.</span>
+<span class="sd">                y (float): y position in *screen coordinates*.</span>
+<span class="sd">                anchor (str): optional anchor position in</span>
+
+<span class="sd">            ::</span>
+
+<span class="sd">                   ul         uc          ur</span>
+<span class="sd">                    +----------+----------+</span>
+<span class="sd">                    |                     |</span>
+<span class="sd">                 cl +         cc          + cr</span>
+<span class="sd">                    |                     |</span>
+<span class="sd">                    +----------+----------+</span>
+<span class="sd">                   ll         lc          lr</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="o">.</span><span class="n">setPos</span><span class="p">(</span><span class="n">glm</span><span class="o">.</span><span class="n">vec3</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">anchor</span> <span class="o">==</span> <span class="s1">&#39;ul&#39;</span><span class="p">:</span>
+            <span class="n">offx</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">offy</span> <span class="o">=</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">font</span><span class="o">.</span><span class="n">table</span><span class="p">[</span><span class="s1">&#39;ascent&#39;</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">anchor</span> <span class="o">==</span> <span class="s1">&#39;uc&#39;</span><span class="p">:</span>
+            <span class="n">offx</span> <span class="o">=</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_labelWidth</span> <span class="o">/</span> <span class="mi">2</span>
+            <span class="n">offy</span> <span class="o">=</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">font</span><span class="o">.</span><span class="n">table</span><span class="p">[</span><span class="s1">&#39;ascent&#39;</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">anchor</span> <span class="o">==</span> <span class="s1">&#39;ur&#39;</span><span class="p">:</span>
+            <span class="n">offx</span> <span class="o">=</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_labelWidth</span>
+            <span class="n">offy</span> <span class="o">=</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">font</span><span class="o">.</span><span class="n">table</span><span class="p">[</span><span class="s1">&#39;ascent&#39;</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">anchor</span> <span class="o">==</span> <span class="s1">&#39;cl&#39;</span><span class="p">:</span>
+            <span class="n">offx</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">offy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_labelHeight</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">font</span><span class="o">.</span><span class="n">table</span><span class="p">[</span><span class="s1">&#39;ascent&#39;</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">anchor</span> <span class="o">==</span> <span class="s1">&#39;cc&#39;</span><span class="p">:</span>
+            <span class="n">offx</span> <span class="o">=</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_labelWidth</span> <span class="o">/</span> <span class="mi">2</span>
+            <span class="n">offy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_labelHeight</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">font</span><span class="o">.</span><span class="n">table</span><span class="p">[</span><span class="s1">&#39;ascent&#39;</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">anchor</span> <span class="o">==</span> <span class="s1">&#39;cr&#39;</span><span class="p">:</span>
+            <span class="n">offx</span> <span class="o">=</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_labelWidth</span>
+            <span class="n">offy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_labelHeight</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">font</span><span class="o">.</span><span class="n">table</span><span class="p">[</span><span class="s1">&#39;ascent&#39;</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">anchor</span> <span class="o">==</span> <span class="s1">&#39;ll&#39;</span><span class="p">:</span>
+            <span class="n">offx</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">offy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_labelHeight</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">font</span><span class="o">.</span><span class="n">table</span><span class="p">[</span><span class="s1">&#39;ascent&#39;</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">anchor</span> <span class="o">==</span> <span class="s1">&#39;lc&#39;</span><span class="p">:</span>
+            <span class="n">offx</span> <span class="o">=</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_labelWidth</span> <span class="o">/</span> <span class="mi">2</span>
+            <span class="n">offy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_labelHeight</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">font</span><span class="o">.</span><span class="n">table</span><span class="p">[</span><span class="s1">&#39;ascent&#39;</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">anchor</span> <span class="o">==</span> <span class="s1">&#39;lr&#39;</span><span class="p">:</span>
+            <span class="n">offx</span> <span class="o">=</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_labelWidth</span>
+            <span class="n">offy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_labelHeight</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">font</span><span class="o">.</span><span class="n">table</span><span class="p">[</span><span class="s1">&#39;ascent&#39;</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">SystemExit</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unimplemented anchor &#39;</span><span class="si">{</span><span class="n">anchor</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">setPos</span><span class="p">(</span><span class="n">glm</span><span class="o">.</span><span class="n">vec3</span><span class="p">(</span><span class="n">offx</span><span class="p">,</span> <span class="n">offy</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="Label.setScale"><a class="viewcode-back" href="../../api/index.html#litGL.label.Label.setScale">[docs]</a>    <span class="k">def</span> <span class="nf">setScale</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sx</span><span class="p">,</span> <span class="n">sy</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sz</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Set transformation scale for all axes.</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                sx (float): scale x</span>
+<span class="sd">                sy (float): scale y</span>
+<span class="sd">                sz (float): scale z</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="o">.</span><span class="n">setScale</span><span class="p">(</span><span class="n">sx</span><span class="p">,</span> <span class="n">sy</span><span class="p">,</span> <span class="n">sz</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Label.setRotation"><a class="viewcode-back" href="../../api/index.html#litGL.label.Label.setRotation">[docs]</a>    <span class="k">def</span> <span class="nf">setRotation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">angle</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Set rotation transformation with `angle` degrees anti clockwise</span>
+<span class="sd">            around Z axis (positive towards viewer).</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                angle (float): rotation angle in degrees</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">axis</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">oldp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="o">.</span><span class="n">pos</span>
+        <span class="n">newpos</span> <span class="o">=</span> <span class="n">oldp</span> <span class="o">+</span> <span class="n">glm</span><span class="o">.</span><span class="n">vec3</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">40</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="o">.</span><span class="n">setPos</span><span class="p">(</span><span class="n">newpos</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="o">.</span><span class="n">setRot</span><span class="p">(</span><span class="n">glm</span><span class="o">.</span><span class="n">angleAxis</span><span class="p">(</span><span class="n">glm</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="n">angle</span><span class="p">),</span>
+                <span class="n">glm</span><span class="o">.</span><span class="n">vec3</span><span class="p">(</span><span class="n">axis</span><span class="p">)))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="o">.</span><span class="n">setPos</span><span class="p">(</span><span class="n">oldp</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Label.setUniforms"><a class="viewcode-back" href="../../api/index.html#litGL.label.Label.setUniforms">[docs]</a>    <span class="k">def</span> <span class="nf">setUniforms</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Set shader uniforms.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">shader</span><span class="o">.</span><span class="n">bind</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">glyphs</span> <span class="ow">in</span> <span class="p">(</span><span class="n">GlyphTypes</span><span class="o">.</span><span class="n">BASE</span><span class="p">,</span> <span class="n">GlyphTypes</span><span class="o">.</span><span class="n">LAYER_COLOR</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">shader</span><span class="o">.</span><span class="n">setUniform</span><span class="p">(</span><span class="s1">&#39;u_curvesTex&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">shader</span><span class="o">.</span><span class="n">setUniform</span><span class="p">(</span><span class="s1">&#39;u_bandsTex&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">glyphs</span> <span class="o">==</span> <span class="n">GlyphTypes</span><span class="o">.</span><span class="n">LAYER_COLOR</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">shader</span><span class="o">.</span><span class="n">setUniform</span><span class="p">(</span><span class="s1">&#39;u_colorsTex&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">glyphs</span> <span class="ow">in</span> <span class="p">(</span>
+                <span class="n">GlyphTypes</span><span class="o">.</span><span class="n">CBDT_COLOR</span><span class="p">,</span> <span class="n">GlyphTypes</span><span class="o">.</span><span class="n">EBDT_COLOR</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">shader</span><span class="o">.</span><span class="n">setUniform</span><span class="p">(</span><span class="s1">&#39;u_colorsTex&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">shader</span><span class="o">.</span><span class="n">unbind</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Label.render"><a class="viewcode-back" href="../../api/index.html#litGL.label.Label.render">[docs]</a>    <span class="k">def</span> <span class="nf">render</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">proj</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Render text using OpenGL</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                proj (:class:`glm.mat4x4`): projection matrix</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">text</span> <span class="o">==</span> <span class="s1">&#39;&#39;</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">mesh</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">getTransformation</span><span class="p">()</span>
+        <span class="n">mvp</span> <span class="o">=</span> <span class="n">proj</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="o">.</span><span class="n">getTransformation</span><span class="p">()</span> <span class="o">*</span> <span class="n">model</span>
+
+        <span class="n">gl</span><span class="o">.</span><span class="n">glEnable</span><span class="p">(</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_FRAMEBUFFER_SRGB</span><span class="p">)</span>
+
+        <span class="n">gl</span><span class="o">.</span><span class="n">glEnable</span><span class="p">(</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_BLEND</span><span class="p">)</span>
+        <span class="n">gl</span><span class="o">.</span><span class="n">glBlendFunc</span><span class="p">(</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_SRC_ALPHA</span><span class="p">,</span> <span class="n">gl</span><span class="o">.</span><span class="n">GL_ONE_MINUS_SRC_ALPHA</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">shader</span><span class="o">.</span><span class="n">bind</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">color</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">shader</span><span class="o">.</span><span class="n">setUniform</span><span class="p">(</span><span class="s1">&#39;u_color&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">color</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">font</span><span class="o">.</span><span class="n">bindAtlas</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">shader</span><span class="o">.</span><span class="n">setUniform</span><span class="p">(</span><span class="s1">&#39;T_MVP&#39;</span><span class="p">,</span> <span class="n">mvp</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">draw</span><span class="p">()</span>
+        <span class="n">gl</span><span class="o">.</span><span class="n">glDisable</span><span class="p">(</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_BLEND</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">shader</span><span class="o">.</span><span class="n">unbind</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">font</span><span class="o">.</span><span class="n">unbindAtlas</span><span class="p">()</span>
+        <span class="n">gl</span><span class="o">.</span><span class="n">glDisable</span><span class="p">(</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_FRAMEBUFFER_SRGB</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Label._updateMetric"><a class="viewcode-back" href="../../api/index.html#litGL.label.Label._updateMetric">[docs]</a>    <span class="k">def</span> <span class="nf">_updateMetric</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">char</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Update glyphs metric at index i for character `char`.</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                i (int): index</span>
+<span class="sd">                char (str): unicode character</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Set the metric</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">off</span> <span class="o">=</span> <span class="n">glm</span><span class="o">.</span><span class="n">vec2</span><span class="p">(</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">)</span>
+            <span class="n">kern</span> <span class="o">=</span> <span class="n">glm</span><span class="o">.</span><span class="n">vec2</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">off</span> <span class="o">=</span> <span class="n">glm</span><span class="o">.</span><span class="n">vec2</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_string_metric</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">2</span><span class="p">])</span>
+            <span class="n">kern</span> <span class="o">=</span> <span class="n">glm</span><span class="o">.</span><span class="n">vec2</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">font</span><span class="o">.</span><span class="n">getKerning</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">text</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">],</span> <span class="n">char</span><span class="p">))</span>
+        <span class="n">glyph</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">extracted</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="nb">ord</span><span class="p">(</span><span class="n">char</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">glyph</span><span class="p">:</span>
+            <span class="n">horz_advance</span> <span class="o">=</span> <span class="n">glyph</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;horz_advance&#39;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">horz_advance</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lineWidth</span> <span class="o">+=</span> <span class="n">horz_advance</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_labelWidth</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_labelWidth</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lineWidth</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">char</span> <span class="o">==</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">:</span>
+            <span class="n">off</span><span class="o">.</span><span class="n">x</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="n">next_char_shift</span> <span class="o">=</span> <span class="n">glm</span><span class="o">.</span><span class="n">vec2</span><span class="p">(</span><span class="n">off</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_lineWidth</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">textHeight</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">font</span><span class="o">.</span><span class="n">table</span><span class="p">[</span><span class="s1">&#39;linespace&#39;</span><span class="p">]</span>
+            <span class="n">next_char_shift</span><span class="o">.</span><span class="n">y</span> <span class="o">-=</span> <span class="n">textHeight</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_labelHeight</span> <span class="o">+=</span> <span class="n">textHeight</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">next_char_shift</span> <span class="o">=</span> <span class="n">glm</span><span class="o">.</span><span class="n">vec2</span><span class="p">(</span><span class="n">off</span><span class="p">)</span> <span class="o">+</span> <span class="n">glm</span><span class="o">.</span><span class="n">vec2</span><span class="p">(</span><span class="n">horz_advance</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">kern</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_string_metric</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_string_metric</span><span class="p">[:</span><span class="n">i</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_string_metric</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">glm</span><span class="o">.</span><span class="n">vec2</span><span class="p">(</span><span class="n">off</span><span class="p">),</span> <span class="n">kern</span><span class="p">,</span> <span class="n">next_char_shift</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">off</span><span class="p">,</span> <span class="n">kern</span></div>
+
+<div class="viewcode-block" id="Label._setText"><a class="viewcode-back" href="../../api/index.html#litGL.label.Label._setText">[docs]</a>    <span class="k">def</span> <span class="nf">_setText</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Set text vertices, indices and color.</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                text (str): text to set</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">text</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="n">text</span><span class="p">:</span>
+            <span class="n">char</span><span class="p">,</span> <span class="n">vertices</span><span class="p">,</span> <span class="n">glyph</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extractGlyph</span><span class="p">(</span><span class="n">ch</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">text</span><span class="p">:</span>
+                <span class="n">off</span><span class="p">,</span> <span class="n">kern</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_updateMetric</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">char</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">vertices</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">char</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">NO_GLYPH_CHARS</span><span class="p">:</span>
+                    <span class="n">vertices</span><span class="p">[</span><span class="s1">&#39;vtx&#39;</span><span class="p">]</span> <span class="o">+=</span>  <span class="n">off</span> <span class="o">+</span> <span class="n">glyph</span><span class="p">[</span><span class="s1">&#39;offset&#39;</span><span class="p">]</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">allVertices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span><span class="n">vertices</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">allIndices</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_baseInd</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">text</span> <span class="o">+=</span> <span class="n">char</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">pos</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
+                <span class="n">nonGlyph</span> <span class="o">=</span> <span class="n">countInSet</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">text</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">NO_GLYPH_CHARS</span><span class="p">)</span>
+                <span class="c1"># Set the metric</span>
+                <span class="n">off</span><span class="p">,</span> <span class="n">kern</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_updateMetric</span><span class="p">(</span><span class="n">pos</span><span class="p">,</span> <span class="n">char</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">vertices</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">char</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">NO_GLYPH_CHARS</span><span class="p">:</span>
+                    <span class="n">vertices</span><span class="p">[</span><span class="s1">&#39;vtx&#39;</span><span class="p">]</span> <span class="o">+=</span> <span class="n">off</span> <span class="o">+</span> <span class="n">kern</span> <span class="o">+</span> <span class="n">glyph</span><span class="p">[</span><span class="s1">&#39;offset&#39;</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">allVertices</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">allVertices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span><span class="n">vertices</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">allVertices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">allVertices</span><span class="p">,</span>
+                                <span class="n">vertices</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">allIndices</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">allIndices</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_baseInd</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">allIndices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">allIndices</span><span class="p">,</span>
+                                <span class="bp">self</span><span class="o">.</span><span class="n">_baseInd</span> <span class="o">+</span> <span class="p">(</span><span class="n">pos</span> <span class="o">-</span> <span class="n">nonGlyph</span><span class="p">)</span> <span class="o">*</span> <span class="mi">4</span><span class="p">))</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">text</span> <span class="o">+=</span> <span class="n">char</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">setUniforms</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Label._extractGlyph"><a class="viewcode-back" href="../../api/index.html#litGL.label.Label._extractGlyph">[docs]</a>    <span class="k">def</span> <span class="nf">_extractGlyph</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">char</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Return vertices and glyph for character `char`.</span>
+<span class="sd">            If no glyph exists for `char` replace `char` with blank.</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                char (str): the unicode char</span>
+
+<span class="sd">            Returns:</span>
+<span class="sd">                tuple:</span>
+<span class="sd">                    - char (str): the input char or balnk (chr(32))</span>
+<span class="sd">                    - vertices (:class:`numpy.ndarray`): glyph vertices</span>
+<span class="sd">                    - currentGlyph (dict): the extracted glyph</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">charno</span> <span class="o">=</span> <span class="nb">ord</span><span class="p">(</span><span class="n">char</span><span class="p">)</span>
+        <span class="n">vertices</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">currentGlyph</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="n">charno</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">extracted</span><span class="p">:</span>
+            <span class="n">currentGlyph</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">extracted</span><span class="p">[</span><span class="n">charno</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">char</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span> <span class="p">):</span>
+                <span class="c1"># No glyph for these chars</span>
+                <span class="k">pass</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">glyph</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">font</span><span class="o">.</span><span class="n">getGlyph</span><span class="p">(</span><span class="n">charno</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">glyphs</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">glyph</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">save_char</span> <span class="o">=</span> <span class="n">char</span>
+                    <span class="n">save_charno</span> <span class="o">=</span> <span class="n">charno</span>
+                    <span class="c1"># Use &#39;.notdef&#39; glyph if it is defined in the font</span>
+                    <span class="n">repcharno</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">glyphs</span> <span class="o">!=</span> <span class="n">GlyphTypes</span><span class="o">.</span><span class="n">CBDT_COLOR</span><span class="p">:</span>
+                        <span class="n">glyph</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">font</span><span class="o">.</span><span class="n">getGlyph</span><span class="p">(</span><span class="n">repcharno</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">glyphs</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">glyph</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="c1"># Use WHITE SQUARE gplyph: \u25A1</span>
+                        <span class="n">repcharno</span> <span class="o">=</span> <span class="mi">9633</span>
+                        <span class="n">glyph</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">font</span><span class="o">.</span><span class="n">getGlyph</span><span class="p">(</span><span class="n">repcharno</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">glyphs</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="n">glyph</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                            <span class="c1"># Still None? Replace character with blank</span>
+                            <span class="n">repcharno</span> <span class="o">=</span> <span class="mi">32</span>
+                            <span class="n">glyph</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">font</span><span class="o">.</span><span class="n">getGlyph</span><span class="p">(</span><span class="n">repcharno</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">glyphs</span><span class="p">)</span>
+                            <span class="n">charno</span> <span class="o">=</span> <span class="mi">32</span>
+                            <span class="n">char</span> <span class="o">=</span> <span class="nb">chr</span><span class="p">(</span><span class="n">charno</span><span class="p">)</span>
+                            <span class="k">if</span> <span class="n">glyph</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Font </span><span class="si">%s</span><span class="s2"> has no space&quot;</span>
+                                        <span class="s2">&quot; character!&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">font</span><span class="o">.</span><span class="n">fontFile</span><span class="p">)</span>
+
+                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Char </span><span class="si">%r</span><span class="s2"> (</span><span class="si">%d</span><span class="s2">) not found in&quot;</span>
+                            <span class="s2">&quot; font </span><span class="si">%s</span><span class="s2"> has been replaced with chr(</span><span class="si">%s</span><span class="s2">)&quot;</span>
+                            <span class="o">%</span> <span class="p">(</span><span class="n">save_char</span><span class="p">,</span> <span class="n">save_charno</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">font</span><span class="o">.</span><span class="n">fontFile</span><span class="p">,</span>
+                            <span class="n">repcharno</span><span class="p">))</span>
+
+                <span class="n">currentGlyph</span> <span class="o">=</span> <span class="n">glyph</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">extracted</span><span class="p">[</span><span class="n">charno</span><span class="p">]</span> <span class="o">=</span> <span class="n">currentGlyph</span>
+
+        <span class="k">if</span> <span class="n">currentGlyph</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="s1">&#39;vertices&#39;</span> <span class="ow">in</span> <span class="n">currentGlyph</span><span class="p">:</span>
+            <span class="n">vertices</span> <span class="o">=</span> <span class="n">currentGlyph</span><span class="p">[</span><span class="s1">&#39;vertices&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">char</span><span class="p">,</span> <span class="n">vertices</span><span class="p">,</span> <span class="n">currentGlyph</span></div></div>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../index.html">
+              <img class="logo" src="../../_static/ogs.png" alt="Logo"/>
+            </a></p>
+<h3><a href="../../index.html">Table of Contents</a></h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api/index.html">litGL package reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../credits.html">Credits</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../license.html">License</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../changes.html">Changes</a></li>
+</ul>
+
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">litGL 1.0.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">litGL.label</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2020-2021, Nicola Creati, Roberto Vidmar.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.0.
+    </div>
+  </body>
+</html>

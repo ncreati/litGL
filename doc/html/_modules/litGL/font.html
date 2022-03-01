@@ -1,0 +1,324 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>litGL.font &#8212; litGL 1.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css" />
+    
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">litGL 1.0.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">litGL.font</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for litGL.font</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot; The font class module.</span>
+
+<span class="sd">        Author:</span>
+<span class="sd">            - 2020-2021 Nicola Creati</span>
+
+<span class="sd">            - 2020-2021 Roberto Vidmar</span>
+
+<span class="sd">        Copyright:</span>
+<span class="sd">            2020-2021 Nicola Creati &lt;ncreati@inogs.it&gt;</span>
+
+<span class="sd">            2020-2021 Roberto Vidmar &lt;rvidmar@inogs.it&gt;</span>
+
+<span class="sd">        License:</span>
+<span class="sd">            MIT/X11 License (see</span>
+<span class="sd">            :download:`license.txt &lt;../../../license.txt&gt;`)</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">OpenGL.GL</span> <span class="k">as</span> <span class="nn">gl</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">import</span> <span class="nn">gzip</span>
+<span class="kn">import</span> <span class="nn">pickle</span>
+<span class="kn">import</span> <span class="nn">copy</span>
+
+<span class="c1"># Local imports</span>
+<span class="kn">from</span> <span class="nn">.fontDistiller</span> <span class="kn">import</span> <span class="n">FontDistiller</span><span class="p">,</span> <span class="n">GlyphTypes</span>
+<span class="kn">from</span> <span class="nn">.texture</span> <span class="kn">import</span> <span class="n">Texture</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">namedLogger</span>
+
+<span class="n">_THIS_DIR</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span>
+<span class="c1">#: This is the default font file</span>
+<span class="n">DEFAULT_FONT_FILE</span> <span class="o">=</span> <span class="n">Path</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="n">_THIS_DIR</span><span class="p">,</span> <span class="s1">&#39;LiberationSans-Regular.nbf&#39;</span><span class="p">)</span>
+
+<span class="c1">#==============================================================================</span>
+<div class="viewcode-block" id="Singleton"><a class="viewcode-back" href="../../api/index.html#litGL.font.Singleton">[docs]</a><span class="k">class</span> <span class="nc">Singleton</span><span class="p">(</span><span class="nb">type</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; Metaclass.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_instances</span> <span class="o">=</span> <span class="p">{}</span>
+
+<div class="viewcode-block" id="Singleton.__call__"><a class="viewcode-back" href="../../api/index.html#litGL.font.Singleton.__call__">[docs]</a>    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Ensure only one instance exists with the same font.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_instances</span><span class="p">:</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">_instances</span><span class="p">[(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">args</span><span class="p">)]</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__call__</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+        <span class="n">instance</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_instances</span><span class="p">[(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">args</span><span class="p">)]</span>
+        <span class="c1">#print(&quot;Font Singleton: ID=&quot;, id(instance))</span>
+        <span class="k">return</span> <span class="n">instance</span></div></div>
+
+<span class="c1">#==============================================================================</span>
+<div class="viewcode-block" id="Font"><a class="viewcode-back" href="../../api/index.html#litGL.font.Font">[docs]</a><span class="k">class</span> <span class="nc">Font</span><span class="p">(</span><span class="n">metaclass</span><span class="o">=</span><span class="n">Singleton</span><span class="p">):</span>
+<div class="viewcode-block" id="Font.__init__"><a class="viewcode-back" href="../../api/index.html#litGL.font.Font.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fontFile</span><span class="o">=</span><span class="n">DEFAULT_FONT_FILE</span><span class="p">,</span> <span class="n">buildAtlas</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;__init__(self, fontFile=DEFAULT_FONT_FILE, buildAtlas=True)</span>
+<span class="sd">            Font files must be in the nbf format, otherwise they will</span>
+<span class="sd">            be compiled only once to nbf in the</span>
+<span class="sd">            :class:`litGL.fontDistiller.FontDistiller.NBF_DIR` folder.</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                fontFile (str): pathname of the font file</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">namedLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="p">)</span>
+        <span class="n">fontFile</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">fontFile</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">fontFile</span><span class="o">.</span><span class="n">suffix</span> <span class="o">==</span> <span class="n">FontDistiller</span><span class="o">.</span><span class="n">EXT</span><span class="p">:</span>
+            <span class="n">nbfFile</span> <span class="o">=</span> <span class="n">fontFile</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Create the directory</span>
+            <span class="n">Path</span><span class="p">(</span><span class="n">FontDistiller</span><span class="o">.</span><span class="n">NBF_DIR</span><span class="p">)</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">nbfFile</span> <span class="o">=</span> <span class="n">Path</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="n">FontDistiller</span><span class="o">.</span><span class="n">NBF_DIR</span><span class="p">,</span>
+                    <span class="s2">&quot;</span><span class="si">%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">fontFile</span><span class="o">.</span><span class="n">stem</span><span class="p">,</span> <span class="n">FontDistiller</span><span class="o">.</span><span class="n">EXT</span><span class="p">))</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">nbfFile</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+                <span class="c1"># Compile it</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">FontDistiller</span><span class="p">(</span><span class="n">fontFile</span><span class="p">)</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">nbfFile</span><span class="p">)</span>
+                <span class="k">except</span> <span class="p">(</span><span class="ne">RuntimeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">critical</span><span class="p">(</span><span class="s2">&quot;Cannot distill font&quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot; </span><span class="si">{</span><span class="n">fontFile</span><span class="si">}</span><span class="s2">, reason is &#39;</span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&#39;.&quot;</span><span class="p">)</span>
+                    <span class="n">nbfFile</span> <span class="o">=</span> <span class="n">DEFAULT_FONT_FILE</span>
+
+        <span class="c1"># Read the nbf fonr file abd retriev the data table</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">gzip</span><span class="o">.</span><span class="n">GzipFile</span><span class="p">(</span><span class="n">nbfFile</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">table</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>
+        <span class="n">data</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fontFile</span> <span class="o">=</span> <span class="n">nbfFile</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">atlas</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="n">buildAtlas</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">buildAtlasTextures</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Font.buildAtlasTextures"><a class="viewcode-back" href="../../api/index.html#litGL.font.Font.buildAtlasTextures">[docs]</a>    <span class="k">def</span> <span class="nf">buildAtlasTextures</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Create all atlas Textures.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">atlas</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;self.atlas exists, no need to build!&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;curvesArrayShape&#39;</span><span class="p">):</span>
+            <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="p">[</span><span class="s1">&#39;curvesArrayShape&#39;</span><span class="p">]</span>
+            <span class="c1"># Curves array</span>
+            <span class="n">curvesArray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="p">[</span><span class="s1">&#39;curvesArray&#39;</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">atlas</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Texture</span><span class="p">(</span><span class="n">curvesArray</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">,</span>
+                    <span class="n">target</span><span class="o">=</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_TEXTURE_RECTANGLE</span><span class="p">,</span>
+                    <span class="n">internalFormat</span><span class="o">=</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_RGBA16F</span><span class="p">,</span> <span class="n">pixFormat</span><span class="o">=</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_RGBA</span><span class="p">))</span>
+            <span class="c1"># Bands array</span>
+            <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="p">[</span><span class="s1">&#39;bandsArrayShape&#39;</span><span class="p">]</span>
+            <span class="n">bandsArray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="p">[</span><span class="s1">&#39;bandsArray&#39;</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">bandsArray</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">uint16</span><span class="p">:</span>
+                <span class="n">internalFormat</span> <span class="o">=</span> <span class="n">gl</span><span class="o">.</span><span class="n">GL_RG16UI</span>
+            <span class="k">elif</span> <span class="n">bandsArray</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">:</span>
+                <span class="n">internalFormat</span> <span class="o">=</span> <span class="n">gl</span><span class="o">.</span><span class="n">GL_RG32UI</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">atlas</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Texture</span><span class="p">(</span><span class="n">bandsArray</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">,</span>
+                    <span class="n">target</span><span class="o">=</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_TEXTURE_RECTANGLE</span><span class="p">,</span>
+                    <span class="n">internalFormat</span><span class="o">=</span><span class="n">internalFormat</span><span class="p">,</span> <span class="n">pixFormat</span><span class="o">=</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_RG_INTEGER</span><span class="p">))</span>
+
+        <span class="c1"># Get the colored array for layered or bitmap glyph if any</span>
+        <span class="n">colored</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;colored&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">colored</span> <span class="o">!=</span> <span class="n">GlyphTypes</span><span class="o">.</span><span class="n">BASE</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">colored</span> <span class="o">==</span> <span class="n">GlyphTypes</span><span class="o">.</span><span class="n">LAYER_COLOR</span><span class="p">:</span>
+                <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="p">[</span><span class="s1">&#39;colorsArrayShape&#39;</span><span class="p">]</span>
+                <span class="n">colorsArray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="p">[</span><span class="s1">&#39;colorsArray&#39;</span><span class="p">])</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">atlas</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Texture</span><span class="p">(</span><span class="n">colorsArray</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">,</span>
+                        <span class="n">target</span><span class="o">=</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_TEXTURE_RECTANGLE</span><span class="p">,</span>
+                        <span class="n">internalFormat</span><span class="o">=</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_RGBA16UI</span><span class="p">,</span>
+                        <span class="n">pixFormat</span><span class="o">=</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_RGBA_INTEGER</span><span class="p">))</span>
+            <span class="k">elif</span> <span class="n">colored</span> <span class="o">==</span> <span class="n">GlyphTypes</span><span class="o">.</span><span class="n">CBDT_COLOR</span><span class="p">:</span>
+                <span class="n">colorsArray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ascontiguousarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="p">[</span><span class="s1">&#39;colorsArray&#39;</span><span class="p">])</span>
+                <span class="n">height</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">bands</span> <span class="o">=</span> <span class="n">colorsArray</span><span class="o">.</span><span class="n">shape</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">atlas</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Texture</span><span class="p">(</span><span class="n">colorsArray</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">,</span>
+                        <span class="n">target</span><span class="o">=</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_TEXTURE_2D</span><span class="p">,</span> <span class="n">internalFormat</span><span class="o">=</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_RGBA</span><span class="p">,</span>
+                        <span class="n">pixFormat</span><span class="o">=</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_RGBA</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="Font.bindAtlas"><a class="viewcode-back" href="../../api/index.html#litGL.font.Font.bindAtlas">[docs]</a>    <span class="k">def</span> <span class="nf">bindAtlas</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Bind all atlases.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">atlas</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">atlas</span><span class="p">):</span>
+            <span class="n">atlas</span><span class="o">.</span><span class="n">bind</span><span class="p">(</span><span class="n">i</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Font.unbindAtlas"><a class="viewcode-back" href="../../api/index.html#litGL.font.Font.unbindAtlas">[docs]</a>    <span class="k">def</span> <span class="nf">unbindAtlas</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Unbind all atlases.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">atlas</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">atlas</span><span class="p">):</span>
+            <span class="n">atlas</span><span class="o">.</span><span class="n">unbind</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Font.chars"><a class="viewcode-back" href="../../api/index.html#litGL.font.Font.chars">[docs]</a>    <span class="k">def</span> <span class="nf">chars</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">glyphType</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Return all characters for glyph type.</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                glyphType (:class:`litGL.fontDistiller.GlyphTypes`):</span>
+<span class="sd">                    glyph type</span>
+
+<span class="sd">            Returns:</span>
+<span class="sd">                tuple: unicode characters for existing glyphs</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">[</span><span class="nb">chr</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">cmap</span><span class="p">(</span><span class="n">glyphType</span><span class="p">)]</span></div>
+
+<div class="viewcode-block" id="Font.cmap"><a class="viewcode-back" href="../../api/index.html#litGL.font.Font.cmap">[docs]</a>    <span class="k">def</span> <span class="nf">cmap</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">glyphType</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Return character map for glyph type.</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                glyphType (:class:`litGL.fontDistiller.GlyphTypes`):</span>
+<span class="sd">                    glyph type</span>
+
+<span class="sd">            Returns:</span>
+<span class="sd">                tuple: unicode codepoints for existing glyphs</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">cmap</span> <span class="o">=</span> <span class="p">()</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">g</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="p">[</span><span class="s1">&#39;glyphs&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">glyphType</span> <span class="ow">in</span> <span class="n">g</span><span class="p">[</span><span class="s1">&#39;glyphTypes&#39;</span><span class="p">]:</span>
+                <span class="n">cmap</span> <span class="o">+=</span> <span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="p">)</span>
+        <span class="k">return</span> <span class="n">cmap</span></div>
+
+<div class="viewcode-block" id="Font.getKerning"><a class="viewcode-back" href="../../api/index.html#litGL.font.Font.getKerning">[docs]</a>    <span class="k">def</span> <span class="nf">getKerning</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">right</span><span class="p">,</span> <span class="n">left</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Return kerning values (horizontal, vertical) for (`right`,</span>
+<span class="sd">            `left`) pair of unicode characters.</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                right (str): right unicode character</span>
+<span class="sd">                left (str): left unicode character</span>
+
+<span class="sd">            Returns:</span>
+<span class="sd">                tuple: (horizontal, vertical) kerning values</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">kern</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="p">[</span><span class="s1">&#39;kerning_table&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">((</span><span class="n">right</span><span class="p">,</span> <span class="n">left</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">kern</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span>
+        <span class="k">return</span> <span class="n">kern</span><span class="p">,</span> <span class="mf">0.0</span></div>
+
+<div class="viewcode-block" id="Font.getGlyph"><a class="viewcode-back" href="../../api/index.html#litGL.font.Font.getGlyph">[docs]</a>    <span class="k">def</span> <span class="nf">getGlyph</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">codepoint</span><span class="p">,</span> <span class="n">glyphType</span><span class="o">=</span><span class="n">GlyphTypes</span><span class="o">.</span><span class="n">BASE</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Return glyph for unicode character with code point</span>
+<span class="sd">            `codepoint`.</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                codepoint (int): unicode code point</span>
+<span class="sd">                glyphType (:class:`litGL.fontDistiller.GlyphTypes`):</span>
+<span class="sd">                    glyph type</span>
+
+<span class="sd">            Returns:</span>
+<span class="sd">                :class:`Glyph`: glyph for codepoint</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">glyph</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="p">[</span><span class="s1">&#39;glyphs&#39;</span><span class="p">][</span><span class="n">codepoint</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Code point &#39;</span><span class="si">{</span><span class="n">codepoint</span><span class="si">}</span><span class="s2">&#39; not found&quot;</span>
+                    <span class="s2">&quot; in glyphs table.&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">glyphType</span> <span class="ow">in</span> <span class="n">glyph</span><span class="p">[</span><span class="s1">&#39;glyphTypes&#39;</span><span class="p">]:</span>
+                <span class="k">if</span> <span class="n">glyphType</span> <span class="ow">in</span> <span class="p">(</span>
+                        <span class="n">GlyphTypes</span><span class="o">.</span><span class="n">BASE</span><span class="p">,</span> <span class="n">GlyphTypes</span><span class="o">.</span><span class="n">CBDT_COLOR</span><span class="p">,</span>
+                        <span class="n">GlyphTypes</span><span class="o">.</span><span class="n">EBDT_COLOR</span><span class="p">):</span>
+                    <span class="k">pass</span>
+                <span class="k">elif</span> <span class="n">glyphType</span> <span class="o">==</span> <span class="n">GlyphTypes</span><span class="o">.</span><span class="n">LAYER_COLOR</span><span class="p">:</span>
+                    <span class="c1"># glyph.copy is NOT sufficient, deepcopy is needed</span>
+                    <span class="c1"># otherwise glyph[&#39;vertices&#39;] are replaced permanently</span>
+                    <span class="n">glyph</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">glyph</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="s1">&#39;gpc&#39;</span> <span class="ow">in</span> <span class="n">glyph</span><span class="p">:</span>
+                        <span class="n">vertices</span> <span class="o">=</span> <span class="n">glyph</span><span class="p">[</span><span class="s1">&#39;vertices&#39;</span><span class="p">]</span>
+                        <span class="n">r</span> <span class="o">=</span> <span class="mi">0</span>
+                        <span class="n">c</span> <span class="o">=</span> <span class="n">glyph</span><span class="p">[</span><span class="s1">&#39;gpc&#39;</span><span class="p">]</span>
+                        <span class="k">if</span> <span class="n">c</span> <span class="o">&gt;</span> <span class="mi">4095</span><span class="p">:</span>
+                            <span class="n">r</span> <span class="o">=</span> <span class="n">vertices</span><span class="p">[</span><span class="s1">&#39;gpc&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="mi">4095</span>
+                            <span class="n">c</span> <span class="o">=</span> <span class="n">vertices</span><span class="p">[</span><span class="s1">&#39;gpc&#39;</span><span class="p">]</span> <span class="o">-</span> <span class="p">(</span><span class="mi">4095</span> <span class="o">*</span> <span class="n">r</span><span class="p">)</span>
+                        <span class="n">vertices</span><span class="p">[</span><span class="s1">&#39;gp&#39;</span><span class="p">][:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">c</span>
+                        <span class="n">vertices</span><span class="p">[</span><span class="s1">&#39;gp&#39;</span><span class="p">][:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">r</span>
+                        <span class="n">glyph</span><span class="p">[</span><span class="s1">&#39;vertices&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">vertices</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;glyphType </span><span class="si">{</span><span class="n">glyphType</span><span class="si">}</span><span class="s2">&quot;</span>
+                            <span class="s2">&quot; not implemented!&quot;</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">glyph</span></div>
+
+<div class="viewcode-block" id="Font.getGlyphTypes"><a class="viewcode-back" href="../../api/index.html#litGL.font.Font.getGlyphTypes">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">getGlyphTypes</span><span class="p">(</span><span class="n">fontFile</span><span class="p">):</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">gzip</span><span class="o">.</span><span class="n">GzipFile</span><span class="p">(</span><span class="n">fontFile</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">pickle</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">read</span><span class="p">())[</span><span class="s1">&#39;glyphTypes&#39;</span><span class="p">]</span></div></div>
+
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../index.html">
+              <img class="logo" src="../../_static/ogs.png" alt="Logo"/>
+            </a></p>
+<h3><a href="../../index.html">Table of Contents</a></h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api/index.html">litGL package reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../credits.html">Credits</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../license.html">License</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../changes.html">Changes</a></li>
+</ul>
+
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">litGL 1.0.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">litGL.font</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2020-2021, Nicola Creati, Roberto Vidmar.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.0.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,4 @@
+#(cd ..; python3 -m large.configspec.configspec -D)
+#sphinx-build -d build/doctrees -b html source/ ../large/doc/html
+sphinx-build -d build/doctrees -b html source/  html
+#make html $*

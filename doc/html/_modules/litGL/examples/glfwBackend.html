@@ -1,0 +1,416 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>litGL.examples.glfwBackend &#8212; litGL 1.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css" />
+    
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">litGL 1.0.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">litGL.examples.glfwBackend</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for litGL.examples.glfwBackend</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABCMeta</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">glfw</span>
+<span class="n">glfw</span><span class="o">.</span><span class="n">ERROR_REPORTING</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="kn">import</span> <span class="nn">OpenGL.GL</span> <span class="k">as</span> <span class="nn">gl</span>
+<span class="kn">import</span> <span class="nn">glm</span>
+<span class="kn">from</span> <span class="nn">..shader</span> <span class="kn">import</span> <span class="n">Shader</span>
+<span class="kn">from</span> <span class="nn">..mesh</span> <span class="kn">import</span> <span class="n">Mesh</span>
+
+<span class="n">actionMap</span> <span class="o">=</span> <span class="p">{</span><span class="n">glfw</span><span class="o">.</span><span class="n">PRESS</span><span class="p">:</span> <span class="s1">&#39;press&#39;</span><span class="p">,</span>
+             <span class="n">glfw</span><span class="o">.</span><span class="n">RELEASE</span><span class="p">:</span> <span class="s1">&#39;release&#39;</span><span class="p">,</span>
+             <span class="n">glfw</span><span class="o">.</span><span class="n">REPEAT</span><span class="p">:</span> <span class="s1">&#39;repeat&#39;</span><span class="p">}</span>
+
+<span class="c1">#==============================================================================</span>
+<span class="c1">#:</span>
+<span class="n">VERTEX</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="s2"># version 330</span>
+
+<span class="s2">layout(location=0) in vec2 position;</span>
+
+<span class="s2">uniform mat4 T_MVP;</span>
+
+<span class="s2">void main()</span>
+<span class="s2">{</span>
+<span class="s2">    gl_Position = T_MVP * vec4(position.x, position.y, 0.0f, 1.0f);</span>
+<span class="s2">}</span>
+<span class="s2">&quot;&quot;&quot;</span>
+
+<span class="c1">#:</span>
+<span class="n">FRAGMENT</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="s2"># version 330</span>
+
+<span class="s2">uniform vec4 color;</span>
+<span class="s2">out vec4 fragColor;</span>
+
+<span class="s2">void main()</span>
+<span class="s2">{</span>
+<span class="s2">    fragColor = color;</span>
+<span class="s2">}</span>
+<span class="s2">&quot;&quot;&quot;</span>
+
+<span class="c1">#==============================================================================</span>
+<div class="viewcode-block" id="get_monitor_dpi"><a class="viewcode-back" href="../../../api/litGL.examples.html#litGL.examples.glfwBackend.get_monitor_dpi">[docs]</a><span class="k">def</span> <span class="nf">get_monitor_dpi</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot; Return monitor resolution in dot per inch.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            float: monitor dot per inch</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">monitor</span> <span class="o">=</span> <span class="n">glfw</span><span class="o">.</span><span class="n">get_primary_monitor</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="c1"># Size in mm</span>
+    <span class="n">video_physical_size</span> <span class="o">=</span> <span class="n">glm</span><span class="o">.</span><span class="n">vec2</span><span class="p">(</span><span class="n">glfw</span><span class="o">.</span><span class="n">get_monitor_physical_size</span><span class="p">(</span><span class="n">monitor</span><span class="p">))</span>
+    <span class="c1">#Monitor info</span>
+    <span class="n">video_resolution</span> <span class="o">=</span> <span class="n">glm</span><span class="o">.</span><span class="n">vec2</span><span class="p">(</span><span class="n">glfw</span><span class="o">.</span><span class="n">get_video_mode</span><span class="p">(</span><span class="n">monitor</span><span class="p">)</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
+    <span class="c1"># Calculate screen DPI</span>
+    <span class="n">inch_to_mm</span> <span class="o">=</span> <span class="mf">0.393701</span><span class="o">/</span><span class="mf">10.0</span>
+    <span class="n">dpi</span> <span class="o">=</span> <span class="p">(</span><span class="n">video_resolution</span><span class="o">/</span><span class="p">(</span><span class="n">video_physical_size</span><span class="o">*</span><span class="n">inch_to_mm</span><span class="p">))</span>
+    <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">dpi</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span></div>
+
+<span class="c1">#------------------------------------------------------------------------------</span>
+<div class="viewcode-block" id="Cross"><a class="viewcode-back" href="../../../api/litGL.examples.html#litGL.examples.glfwBackend.Cross">[docs]</a><span class="k">class</span> <span class="nc">Cross</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot; Draw a cross centered on the OpenGL window.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+<div class="viewcode-block" id="Cross.__init__"><a class="viewcode-back" href="../../../api/litGL.examples.html#litGL.examples.glfwBackend.Cross.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">]):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">shader</span> <span class="o">=</span> <span class="n">Shader</span><span class="o">.</span><span class="n">fromString</span><span class="p">(</span><span class="n">vertex</span><span class="o">=</span><span class="n">VERTEX</span><span class="p">,</span> <span class="n">fragment</span><span class="o">=</span><span class="n">FRAGMENT</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">color</span> <span class="o">=</span> <span class="n">color</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vertices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="p">[(</span><span class="s1">&#39;vxt&#39;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="mi">2</span><span class="p">)])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vertices</span><span class="p">[</span><span class="s1">&#39;vxt&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vertices</span><span class="p">[</span><span class="s1">&#39;vxt&#39;</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vertices</span><span class="p">[</span><span class="s1">&#39;vxt&#39;</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vertices</span><span class="p">[</span><span class="s1">&#39;vxt&#39;</span><span class="p">][</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mesh</span> <span class="o">=</span> <span class="n">Mesh</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">vertices</span><span class="p">,</span> <span class="n">indices</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Cross.render"><a class="viewcode-back" href="../../../api/litGL.examples.html#litGL.examples.glfwBackend.Cross.render">[docs]</a>    <span class="k">def</span> <span class="nf">render</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mvp</span><span class="o">=</span><span class="n">glm</span><span class="o">.</span><span class="n">mat4</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">shader</span><span class="o">.</span><span class="n">bind</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">shader</span><span class="o">.</span><span class="n">setUniform</span><span class="p">(</span><span class="s1">&#39;T_MVP&#39;</span><span class="p">,</span> <span class="n">mvp</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">shader</span><span class="o">.</span><span class="n">setUniform</span><span class="p">(</span><span class="s1">&#39;color&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">color</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">draw</span><span class="p">(</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_LINES</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">shader</span><span class="o">.</span><span class="n">unbind</span><span class="p">()</span></div></div>
+
+<span class="c1">#------------------------------------------------------------------------------</span>
+<div class="viewcode-block" id="Rectangle"><a class="viewcode-back" href="../../../api/litGL.examples.html#litGL.examples.glfwBackend.Rectangle">[docs]</a><span class="k">class</span> <span class="nc">Rectangle</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot; Draw a rectangle on the OpenGL window.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+<div class="viewcode-block" id="Rectangle.__init__"><a class="viewcode-back" href="../../../api/litGL.examples.html#litGL.examples.glfwBackend.Rectangle.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">window</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">shader</span> <span class="o">=</span> <span class="n">Shader</span><span class="o">.</span><span class="n">fromString</span><span class="p">(</span><span class="n">vertex</span><span class="o">=</span><span class="n">VERTEX</span><span class="p">,</span> <span class="n">fragment</span><span class="o">=</span><span class="n">FRAGMENT</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">color</span> <span class="o">=</span> <span class="n">color</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">window</span> <span class="o">=</span> <span class="n">window</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vertices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="p">[(</span><span class="s1">&#39;vxt&#39;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="mi">2</span><span class="p">)])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vertices</span><span class="p">[</span><span class="s1">&#39;vxt&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mesh</span> <span class="o">=</span> <span class="n">Mesh</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">vertices</span><span class="p">,</span> <span class="n">indices</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Rectangle.win2openGL"><a class="viewcode-back" href="../../../api/litGL.examples.html#litGL.examples.glfwBackend.Rectangle.win2openGL">[docs]</a>    <span class="k">def</span> <span class="nf">win2openGL</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+        <span class="n">xg</span> <span class="o">=</span> <span class="n">x</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">window</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">-</span> <span class="mi">1</span>
+        <span class="n">yg</span> <span class="o">=</span> <span class="o">-</span> <span class="p">(</span><span class="n">y</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">window</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">xg</span><span class="p">,</span> <span class="n">yg</span></div>
+
+<div class="viewcode-block" id="Rectangle.setVertices"><a class="viewcode-back" href="../../../api/litGL.examples.html#litGL.examples.glfwBackend.Rectangle.setVertices">[docs]</a>    <span class="k">def</span> <span class="nf">setVertices</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">):</span>
+        <span class="n">vertices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="p">[(</span><span class="s1">&#39;vxt&#39;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="mi">2</span><span class="p">)])</span>
+        <span class="n">vertices</span><span class="p">[</span><span class="s1">&#39;vxt&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">win2openGL</span><span class="p">(</span><span class="n">x0</span><span class="p">,</span> <span class="n">y0</span><span class="p">)</span>
+        <span class="n">vertices</span><span class="p">[</span><span class="s1">&#39;vxt&#39;</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">win2openGL</span><span class="p">(</span><span class="n">x0</span><span class="p">,</span> <span class="n">y0</span> <span class="o">+</span> <span class="n">height</span><span class="p">)</span>
+        <span class="n">vertices</span><span class="p">[</span><span class="s1">&#39;vxt&#39;</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">win2openGL</span><span class="p">(</span><span class="n">x0</span> <span class="o">+</span> <span class="n">width</span><span class="p">,</span> <span class="n">y0</span> <span class="o">+</span> <span class="n">height</span><span class="p">)</span>
+        <span class="n">vertices</span><span class="p">[</span><span class="s1">&#39;vxt&#39;</span><span class="p">][</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">win2openGL</span><span class="p">(</span><span class="n">x0</span> <span class="o">+</span> <span class="n">width</span><span class="p">,</span> <span class="n">y0</span><span class="p">)</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">rebuild</span><span class="p">(</span><span class="n">vertices</span><span class="p">,</span> <span class="n">indices</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Rectangle.render"><a class="viewcode-back" href="../../../api/litGL.examples.html#litGL.examples.glfwBackend.Rectangle.render">[docs]</a>    <span class="k">def</span> <span class="nf">render</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mvp</span><span class="o">=</span><span class="n">glm</span><span class="o">.</span><span class="n">mat4</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">shader</span><span class="o">.</span><span class="n">bind</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">shader</span><span class="o">.</span><span class="n">setUniform</span><span class="p">(</span><span class="s1">&#39;T_MVP&#39;</span><span class="p">,</span> <span class="n">mvp</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">shader</span><span class="o">.</span><span class="n">setUniform</span><span class="p">(</span><span class="s1">&#39;color&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">color</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mesh</span><span class="o">.</span><span class="n">draw</span><span class="p">(</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_LINES</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">shader</span><span class="o">.</span><span class="n">unbind</span><span class="p">()</span></div></div>
+
+<span class="c1">#------------------------------------------------------------------------------</span>
+<div class="viewcode-block" id="createWindow"><a class="viewcode-back" href="../../../api/litGL.examples.html#litGL.examples.glfwBackend.createWindow">[docs]</a><span class="k">def</span> <span class="nf">createWindow</span><span class="p">(</span><span class="n">width</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">visible</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; Create on OpenGL window and return it.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            width (int): window width</span>
+<span class="sd">            height (int): window height</span>
+<span class="sd">            title (str): window title</span>
+<span class="sd">            visible (bool): make the window visible</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            :class:`glfw.LP__GLFWwindow`: window instance</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">glfw</span><span class="o">.</span><span class="n">window_hint</span><span class="p">(</span><span class="n">glfw</span><span class="o">.</span><span class="n">VISIBLE</span><span class="p">,</span> <span class="n">visible</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span> <span class="o">==</span> <span class="s1">&#39;darwin&#39;</span><span class="p">:</span>
+        <span class="n">glfw</span><span class="o">.</span><span class="n">window_hint</span><span class="p">(</span><span class="n">glfw</span><span class="o">.</span><span class="n">CONTEXT_VERSION_MAJOR</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="n">glfw</span><span class="o">.</span><span class="n">window_hint</span><span class="p">(</span><span class="n">glfw</span><span class="o">.</span><span class="n">CONTEXT_VERSION_MINOR</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="n">glfw</span><span class="o">.</span><span class="n">window_hint</span><span class="p">(</span><span class="n">glfw</span><span class="o">.</span><span class="n">OPENGL_FORWARD_COMPAT</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="n">glfw</span><span class="o">.</span><span class="n">window_hint</span><span class="p">(</span><span class="n">glfw</span><span class="o">.</span><span class="n">OPENGL_PROFILE</span><span class="p">,</span> <span class="n">glfw</span><span class="o">.</span><span class="n">OPENGL_CORE_PROFILE</span><span class="p">)</span>
+    <span class="n">window</span> <span class="o">=</span> <span class="n">glfw</span><span class="o">.</span><span class="n">create_window</span><span class="p">(</span><span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">glfw</span><span class="o">.</span><span class="n">make_context_current</span><span class="p">(</span><span class="n">window</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">window</span></div>
+
+<span class="c1">#------------------------------------------------------------------------------</span>
+<div class="viewcode-block" id="glInfo"><a class="viewcode-back" href="../../../api/litGL.examples.html#litGL.examples.glfwBackend.glInfo">[docs]</a><span class="k">def</span> <span class="nf">glInfo</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot; Return OpenGL information dict.</span>
+
+<span class="sd">        .. WARNING:: OpenGL context MUST be initialized before calling</span>
+<span class="sd">            this function!!!</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            OpenGL information dict</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">glcontext</span> <span class="o">=</span> <span class="n">glfw</span><span class="o">.</span><span class="n">get_current_context</span><span class="p">()</span>
+    <span class="k">except</span> <span class="n">glfw</span><span class="o">.</span><span class="n">GLFWError</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">glfw</span><span class="o">.</span><span class="n">init</span><span class="p">()</span>
+            <span class="n">createWindow</span><span class="p">()</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">wasInitialized</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">wasInitialized</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="n">major</span> <span class="o">=</span> <span class="n">gl</span><span class="o">.</span><span class="n">glGetIntegerv</span><span class="p">(</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_MAJOR_VERSION</span><span class="p">)</span>
+    <span class="n">minor</span> <span class="o">=</span> <span class="n">gl</span><span class="o">.</span><span class="n">glGetIntegerv</span><span class="p">(</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_MINOR_VERSION</span><span class="p">)</span>
+    <span class="n">version</span> <span class="o">=</span> <span class="n">gl</span><span class="o">.</span><span class="n">glGetString</span><span class="p">(</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_VERSION</span><span class="p">)</span>
+    <span class="n">vendor</span> <span class="o">=</span> <span class="n">gl</span><span class="o">.</span><span class="n">glGetString</span><span class="p">(</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_VENDOR</span><span class="p">)</span>
+    <span class="n">renderer</span> <span class="o">=</span> <span class="n">gl</span><span class="o">.</span><span class="n">glGetString</span><span class="p">(</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_RENDERER</span><span class="p">)</span>
+    <span class="n">glsl</span> <span class="o">=</span> <span class="n">gl</span><span class="o">.</span><span class="n">glGetString</span><span class="p">(</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_SHADING_LANGUAGE_VERSION</span><span class="p">)</span>
+    <span class="n">glversion</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%d</span><span class="s2">.</span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">major</span><span class="p">,</span> <span class="n">minor</span><span class="p">))</span>
+    <span class="n">retval</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;glversion&#39;</span><span class="p">:</span> <span class="n">glversion</span><span class="p">,</span>
+            <span class="s1">&#39;version&#39;</span><span class="p">:</span> <span class="n">version</span><span class="p">,</span>
+            <span class="s1">&#39;vendor&#39;</span><span class="p">:</span> <span class="n">vendor</span><span class="p">,</span>
+            <span class="s1">&#39;renderer&#39;</span><span class="p">:</span> <span class="n">renderer</span><span class="p">,</span>
+            <span class="s1">&#39;glsl&#39;</span><span class="p">:</span> <span class="n">glsl</span><span class="p">,</span>
+            <span class="p">}</span>
+    <span class="k">if</span> <span class="n">glversion</span> <span class="o">&gt;=</span> <span class="mf">4.3</span><span class="p">:</span>
+        <span class="n">count</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+        <span class="n">size</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+        <span class="n">count</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">gl</span><span class="o">.</span><span class="n">glGetIntegeri_v</span><span class="p">(</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_MAX_COMPUTE_WORK_GROUP_COUNT</span><span class="p">,</span> <span class="mi">0</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">count</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">gl</span><span class="o">.</span><span class="n">glGetIntegeri_v</span><span class="p">(</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_MAX_COMPUTE_WORK_GROUP_COUNT</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">count</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">gl</span><span class="o">.</span><span class="n">glGetIntegeri_v</span><span class="p">(</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_MAX_COMPUTE_WORK_GROUP_COUNT</span><span class="p">,</span> <span class="mi">2</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">size</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">gl</span><span class="o">.</span><span class="n">glGetIntegeri_v</span><span class="p">(</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_MAX_COMPUTE_WORK_GROUP_SIZE</span><span class="p">,</span> <span class="mi">0</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">size</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">gl</span><span class="o">.</span><span class="n">glGetIntegeri_v</span><span class="p">(</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_MAX_COMPUTE_WORK_GROUP_SIZE</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">size</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">gl</span><span class="o">.</span><span class="n">glGetIntegeri_v</span><span class="p">(</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_MAX_COMPUTE_WORK_GROUP_SIZE</span><span class="p">,</span> <span class="mi">2</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">retval</span><span class="p">[</span><span class="s1">&#39;maxComputeWorkGroupCount&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">count</span>
+        <span class="n">retval</span><span class="p">[</span><span class="s1">&#39;maxComputeWorkGroupSize&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">size</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">wasInitialized</span><span class="p">:</span>
+        <span class="n">glfw</span><span class="o">.</span><span class="n">terminate</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">retval</span></div>
+
+<span class="c1">#------------------------------------------------------------------------------</span>
+<div class="viewcode-block" id="errorCallback"><a class="viewcode-back" href="../../../api/litGL.examples.html#litGL.examples.glfwBackend.errorCallback">[docs]</a><span class="k">def</span> <span class="nf">errorCallback</span><span class="p">(</span><span class="n">error</span><span class="p">,</span> <span class="n">description</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Error </span><span class="si">%s</span><span class="s1">, </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">error</span><span class="p">,</span> <span class="n">description</span><span class="p">))</span></div>
+
+<span class="c1">#==============================================================================</span>
+<div class="viewcode-block" id="glfwApp"><a class="viewcode-back" href="../../../api/litGL.examples.html#litGL.examples.glfwBackend.glfwApp">[docs]</a><span class="k">class</span> <span class="nc">glfwApp</span><span class="p">(</span><span class="n">metaclass</span><span class="o">=</span><span class="n">ABCMeta</span><span class="p">):</span>
+
+    <span class="n">KEY_G</span> <span class="o">=</span> <span class="n">glfw</span><span class="o">.</span><span class="n">KEY_G</span>
+    <span class="n">KEY_N</span> <span class="o">=</span> <span class="n">glfw</span><span class="o">.</span><span class="n">KEY_N</span>
+    <span class="n">KEY_F</span> <span class="o">=</span> <span class="n">glfw</span><span class="o">.</span><span class="n">KEY_F</span>
+    <span class="n">PRESS</span> <span class="o">=</span> <span class="n">glfw</span><span class="o">.</span><span class="n">PRESS</span>
+    <span class="n">RELEASE</span> <span class="o">=</span> <span class="n">glfw</span><span class="o">.</span><span class="n">RELEASE</span>
+
+<div class="viewcode-block" id="glfwApp.__init__"><a class="viewcode-back" href="../../../api/litGL.examples.html#litGL.examples.glfwBackend.glfwApp.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mi">800</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">600</span><span class="p">,</span> <span class="n">resizable</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">bgColor</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)):</span>
+        <span class="sd">&quot;&quot;&quot; Create a new glfwApp instance.</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                title (string): window title</span>
+<span class="sd">                width (integer): window width in pixels</span>
+<span class="sd">                height (integer): window height in pixels</span>
+<span class="sd">                resizable (bool): if True the window can be resized</span>
+<span class="sd">                bgColor (tuple): background color (0..1)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">width</span> <span class="o">=</span> <span class="n">width</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">height</span> <span class="o">=</span> <span class="n">height</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_title</span> <span class="o">=</span> <span class="n">title</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bg_color</span> <span class="o">=</span> <span class="n">bgColor</span>
+
+        <span class="n">glfw</span><span class="o">.</span><span class="n">set_error_callback</span><span class="p">(</span><span class="n">errorCallback</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">glfw</span><span class="o">.</span><span class="n">init</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">SystemExit</span><span class="p">(</span><span class="s2">&quot;Error initializing GLFW&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">resizable</span><span class="p">:</span>
+            <span class="n">glfw</span><span class="o">.</span><span class="n">window_hint</span><span class="p">(</span><span class="n">glfw</span><span class="o">.</span><span class="n">RESIZABLE</span><span class="p">,</span> <span class="n">gl</span><span class="o">.</span><span class="n">GL_TRUE</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">glfw</span><span class="o">.</span><span class="n">window_hint</span><span class="p">(</span><span class="n">glfw</span><span class="o">.</span><span class="n">RESIZABLE</span><span class="p">,</span> <span class="n">gl</span><span class="o">.</span><span class="n">GL_FALSE</span><span class="p">)</span>
+        <span class="c1"># Create the window</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_window</span> <span class="o">=</span> <span class="n">createWindow</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">width</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">height</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_title</span><span class="p">,</span> <span class="n">visible</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">glfw</span><span class="o">.</span><span class="n">set_framebuffer_size_callback</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_window</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">onResize</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_window</span><span class="p">:</span>
+            <span class="n">glfw</span><span class="o">.</span><span class="n">terminate</span><span class="p">()</span>
+            <span class="k">raise</span> <span class="ne">SystemExit</span>
+
+        <span class="n">glfw</span><span class="o">.</span><span class="n">make_context_current</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_window</span><span class="p">)</span>
+        <span class="n">glfw</span><span class="o">.</span><span class="n">set_key_callback</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_window</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">onKeyboard</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fwidth</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fheight</span> <span class="o">=</span> <span class="n">glfw</span><span class="o">.</span><span class="n">get_framebuffer_size</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_window</span><span class="p">)</span>
+        <span class="n">gl</span><span class="o">.</span><span class="n">glViewport</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fwidth</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fheight</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="glfwApp.onResize"><a class="viewcode-back" href="../../../api/litGL.examples.html#litGL.examples.glfwBackend.glfwApp.onResize">[docs]</a>    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">onResize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">window</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; This method must be implemened. It is called automatically when</span>
+<span class="sd">            the window gets resized.</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                window (class:`glfw.LP__GLFWwindow` instance): window</span>
+<span class="sd">                width (int): window width in pixels</span>
+<span class="sd">                height (int): window height in pixels</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="glfwApp.onKeyboard"><a class="viewcode-back" href="../../../api/litGL.examples.html#litGL.examples.glfwBackend.glfwApp.onKeyboard">[docs]</a>    <span class="k">def</span> <span class="nf">onKeyboard</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">window</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">scancode</span><span class="p">,</span> <span class="n">action</span><span class="p">,</span> <span class="n">mode</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Process keybord input. This method is called automatically when</span>
+<span class="sd">            the user interacts with the keyboard.</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                window (:class:`glfw.LP__GLFWwindow` instance): window</span>
+<span class="sd">                key (integer): the key that was pressed</span>
+<span class="sd">                scancode (integer):</span>
+<span class="sd">                action (integer): PRESS, RELEASE, REPEAT</span>
+<span class="sd">                mode (integer): modifier</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="p">(</span><span class="n">glfw</span><span class="o">.</span><span class="n">KEY_ESCAPE</span><span class="p">,</span> <span class="n">glfw</span><span class="o">.</span><span class="n">KEY_Q</span><span class="p">):</span>
+            <span class="n">glfw</span><span class="o">.</span><span class="n">set_window_should_close</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_window</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">glfw</span><span class="o">.</span><span class="n">poll_events</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="glfwApp.window"><a class="viewcode-back" href="../../../api/litGL.examples.html#litGL.examples.glfwBackend.glfwApp.window">[docs]</a>    <span class="k">def</span> <span class="nf">window</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Return the window instance</span>
+
+<span class="sd">            Returns:</span>
+<span class="sd">                the window instance</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_window</span></div>
+
+<div class="viewcode-block" id="glfwApp.title"><a class="viewcode-back" href="../../../api/litGL.examples.html#litGL.examples.glfwBackend.glfwApp.title">[docs]</a>    <span class="k">def</span> <span class="nf">title</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Return window title</span>
+
+<span class="sd">            Returns:</span>
+<span class="sd">                the window title</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_title</span></div>
+
+<div class="viewcode-block" id="glfwApp.setTitle"><a class="viewcode-back" href="../../../api/litGL.examples.html#litGL.examples.glfwBackend.glfwApp.setTitle">[docs]</a>    <span class="k">def</span> <span class="nf">setTitle</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">title</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Set window title</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                title (string): the new window title</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">glfw</span><span class="o">.</span><span class="n">set_window_title</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_window</span><span class="p">,</span> <span class="n">title</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="glfwApp.run"><a class="viewcode-back" href="../../../api/litGL.examples.html#litGL.examples.glfwBackend.glfwApp.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">close</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Start the application main loop</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">while</span> <span class="ow">not</span> <span class="n">glfw</span><span class="o">.</span><span class="n">window_should_close</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_window</span><span class="p">):</span>
+            <span class="n">gl</span><span class="o">.</span><span class="n">glClearColor</span><span class="p">(</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">bg_color</span><span class="p">)</span>
+            <span class="n">glfw</span><span class="o">.</span><span class="n">poll_events</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">renderScene</span><span class="p">()</span>
+            <span class="n">glfw</span><span class="o">.</span><span class="n">swap_buffers</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_window</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">close</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="glfwApp.close"><a class="viewcode-back" href="../../../api/litGL.examples.html#litGL.examples.glfwBackend.glfwApp.close">[docs]</a>    <span class="k">def</span> <span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Destroy the window and terminate glfw</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">glfw</span><span class="o">.</span><span class="n">destroy_window</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_window</span><span class="p">)</span>
+        <span class="n">glfw</span><span class="o">.</span><span class="n">terminate</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="glfwApp.renderScene"><a class="viewcode-back" href="../../../api/litGL.examples.html#litGL.examples.glfwBackend.glfwApp.renderScene">[docs]</a>    <span class="k">def</span> <span class="nf">renderScene</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Render the scene. This method is called automatically in the run</span>
+<span class="sd">            loop</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">gl</span><span class="o">.</span><span class="n">glClear</span><span class="p">(</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_COLOR_BUFFER_BIT</span><span class="p">)</span></div></div>
+
+<span class="c1"># =============================================================================</span>
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">app</span> <span class="o">=</span> <span class="n">glfwApp</span><span class="p">(</span><span class="s1">&#39;glfwApp&#39;</span><span class="p">)</span>
+    <span class="n">app</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../../index.html">
+              <img class="logo" src="../../../_static/ogs.png" alt="Logo"/>
+            </a></p>
+<h3><a href="../../../index.html">Table of Contents</a></h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/index.html">litGL package reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../credits.html">Credits</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../license.html">License</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../changes.html">Changes</a></li>
+</ul>
+
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">litGL 1.0.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">litGL.examples.glfwBackend</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2020-2021, Nicola Creati, Roberto Vidmar.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.0.
+    </div>
+  </body>
+</html>

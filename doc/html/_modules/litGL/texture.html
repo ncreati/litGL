@@ -1,0 +1,232 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>litGL.texture &#8212; litGL 1.0.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/classic.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css" />
+    
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">litGL 1.0.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">litGL.texture</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for litGL.texture</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot; The texture class module.</span>
+
+<span class="sd">        Author:</span>
+<span class="sd">            - 2020-2021 Nicola Creati</span>
+
+<span class="sd">            - 2020-2021 Roberto Vidmar</span>
+
+<span class="sd">        Copyright:</span>
+<span class="sd">            2020-2021 Nicola Creati &lt;ncreati@inogs.it&gt;</span>
+
+<span class="sd">            2020-2021 Roberto Vidmar &lt;rvidmar@inogs.it&gt;</span>
+
+<span class="sd">        License:</span>
+<span class="sd">            MIT/X11 License (see</span>
+<span class="sd">            :download:`license.txt &lt;../../../license.txt&gt;`)</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">OpenGL.GL</span> <span class="k">as</span> <span class="nn">gl</span>
+
+<span class="c1"># To use half_float (np.float16)</span>
+<span class="c1"># from OpenGL.GL.NV import half_float</span>
+<span class="c1"># change np.dtype(np.float16): gl.GL_FLOAT</span>
+<span class="c1"># to np.dtype(np.float16): half_float.GL_HALF_NV</span>
+<span class="c1"># By the way it is still possible to send an np.float16 array and set the</span>
+<span class="c1"># texelType to GL_FLOAT and the internalFormat to GL_RGBA16F size</span>
+<span class="c1"># the GPU makes the conversion internally storing a texture with half size</span>
+
+<span class="n">vertex_type</span> <span class="o">=</span> <span class="p">{</span>
+               <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">)</span>    <span class="p">:</span> <span class="n">gl</span><span class="o">.</span><span class="n">GL_BYTE</span><span class="p">,</span>
+               <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span>   <span class="p">:</span> <span class="n">gl</span><span class="o">.</span><span class="n">GL_UNSIGNED_BYTE</span><span class="p">,</span>
+               <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int16</span><span class="p">)</span>   <span class="p">:</span> <span class="n">gl</span><span class="o">.</span><span class="n">GL_SHORT</span><span class="p">,</span>
+               <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">uint16</span><span class="p">)</span>  <span class="p">:</span> <span class="n">gl</span><span class="o">.</span><span class="n">GL_UNSIGNED_SHORT</span><span class="p">,</span>
+               <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>   <span class="p">:</span> <span class="n">gl</span><span class="o">.</span><span class="n">GL_INT</span><span class="p">,</span>
+               <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span>  <span class="p">:</span> <span class="n">gl</span><span class="o">.</span><span class="n">GL_UNSIGNED_INT</span><span class="p">,</span>
+               <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float16</span><span class="p">)</span> <span class="p">:</span> <span class="n">gl</span><span class="o">.</span><span class="n">GL_FLOAT</span><span class="p">,</span>
+               <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span> <span class="p">:</span> <span class="n">gl</span><span class="o">.</span><span class="n">GL_FLOAT</span><span class="p">,</span>
+               <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span> <span class="p">:</span> <span class="n">gl</span><span class="o">.</span><span class="n">GL_DOUBLE</span>
+               <span class="p">}</span>
+
+<span class="c1"># =============================================================================</span>
+<div class="viewcode-block" id="Texture"><a class="viewcode-back" href="../../api/index.html#litGL.texture.Texture">[docs]</a><span class="k">class</span> <span class="nc">Texture</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">::</span>
+
+<span class="sd">    https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTexImage2D.xhtml</span>
+<span class="sd">    border = must be 0</span>
+<span class="sd">    data_type(type) = Specifies the data type of the pixel data. The following</span>
+<span class="sd">                    symbolic values are accepted: GL_UNSIGNED_BYTE, GL_BYTE,</span>
+<span class="sd">                    GL_UNSIGNED_SHORT, GL_SHORT, GL_UNSIGNED_INT, GL_INT,</span>
+<span class="sd">                    GL_HALF_FLOAT, GL_FLOAT, GL_UNSIGNED_BYTE_3_3_2,</span>
+<span class="sd">                    GL_UNSIGNED_BYTE_2_3_3_REV, GL_UNSIGNED_SHORT_5_6_5,</span>
+<span class="sd">                    GL_UNSIGNED_SHORT_5_6_5_REV, GL_UNSIGNED_SHORT_4_4_4_4,</span>
+<span class="sd">                    GL_UNSIGNED_SHORT_4_4_4_4_REV, GL_UNSIGNED_SHORT_5_5_5_1,</span>
+<span class="sd">                    GL_UNSIGNED_SHORT_1_5_5_5_REV, GL_UNSIGNED_INT_8_8_8_8,</span>
+<span class="sd">                    GL_UNSIGNED_INT_8_8_8_8_REV, GL_UNSIGNED_INT_10_10_10_2,</span>
+<span class="sd">                    and GL_UNSIGNED_INT_2_10_10_10_REV.</span>
+<span class="sd">    data = array</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+<div class="viewcode-block" id="Texture.__init__"><a class="viewcode-back" href="../../api/index.html#litGL.texture.Texture.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">array</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_TEXTURE_2D</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                 <span class="n">internalFormat</span><span class="o">=</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_RGBA</span><span class="p">,</span> <span class="n">pixFormat</span><span class="o">=</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_RGBA</span><span class="p">,</span>
+                 <span class="n">interpolator</span><span class="o">=</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_NEAREST</span><span class="p">,</span> <span class="n">clamp</span><span class="o">=</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_REPEAT</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Args:</span>
+<span class="sd">                array (:class:`numpy.ndarray`): data to be converted to</span>
+<span class="sd">                    texture</span>
+<span class="sd">                width (int): texture width</span>
+<span class="sd">                height (int): texture height</span>
+<span class="sd">                target (:class:`OpenGL.constant.IntConstant`): Specifies</span>
+<span class="sd">                    the target texture. Must be any of:</span>
+<span class="sd">                    GL_TEXTURE_2D, GL_PROXY_TEXTURE_2D, GL_TEXTURE_1D_ARRAY,</span>
+<span class="sd">                    GL_PROXY_TEXTURE_1D_ARRAY,</span>
+<span class="sd">                    GL_TEXTURE_RECTANGLE, GL_PROXY_TEXTURE_RECTANGLE,</span>
+<span class="sd">                    GL_TEXTURE_CUBE_MAP_POSITIVE_X,</span>
+<span class="sd">                    GL_TEXTURE_CUBE_MAP_NEGATIVE_X,</span>
+<span class="sd">                    GL_TEXTURE_CUBE_MAP_POSITIVE_Y,</span>
+<span class="sd">                    GL_TEXTURE_CUBE_MAP_NEGATIVE_Y,</span>
+<span class="sd">                    GL_TEXTURE_CUBE_MAP_POSITIVE_Z,</span>
+<span class="sd">                    GL_TEXTURE_CUBE_MAP_NEGATIVE_Z,</span>
+<span class="sd">                    GL_PROXY_TEXTURE_CUBE_MAP</span>
+<span class="sd">                level (int): Specifies the level-of-detail number.</span>
+
+<span class="sd">                    - Level 0 is the base image level.</span>
+<span class="sd">                    - Level n is the nth mipmap reduction image.</span>
+
+<span class="sd">                    If target is GL_TEXTURE_RECTANGLE or</span>
+<span class="sd">                    GL_PROXY_TEXTURE_RECTANGLE, level must be 0.</span>
+<span class="sd">                internalFormat (:class:`OpenGL.constant.IntConstant`):</span>
+<span class="sd">                    Specifies the number of color components in the texture.</span>
+<span class="sd">                pixFormat (:class:`OpenGL.constant.IntConstant`): Specifies</span>
+<span class="sd">                    the format of the pixel data. The following</span>
+<span class="sd">                    symbolic values are accepted: GL_RED, GL_RG, GL_RGB,</span>
+<span class="sd">                    GL_BGR, GL_RGBA, GL_BGRA, GL_RED_INTEGER, GL_RG_INTEGER,</span>
+<span class="sd">                    GL_RGB_INTEGER, GL_BGR_INTEGER, GL_RGBA_INTEGER,</span>
+<span class="sd">                    GL_BGRA_INTEGER, GL_STENCIL_INDEX, GL_DEPTH_COMPONENT,</span>
+<span class="sd">                    GL_DEPTH_STENCIL.</span>
+<span class="sd">                interpolator (:class:`OpenGL.constant.IntConstant`):</span>
+<span class="sd">                    interpolator</span>
+<span class="sd">                clamp (:class:`OpenGL.constant.IntConstant`): ??</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">array</span> <span class="o">=</span> <span class="n">array</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">target</span> <span class="o">=</span> <span class="n">target</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_width</span> <span class="o">=</span> <span class="n">width</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_height</span> <span class="o">=</span> <span class="n">height</span>
+        <span class="n">border</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">texelType</span> <span class="o">=</span> <span class="n">vertex_type</span><span class="p">[</span><span class="n">array</span><span class="o">.</span><span class="n">dtype</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_texelType</span> <span class="o">=</span> <span class="n">texelType</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">texID</span> <span class="o">=</span> <span class="n">gl</span><span class="o">.</span><span class="n">glGenTextures</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pix_format</span> <span class="o">=</span> <span class="n">pixFormat</span>
+        <span class="n">gl</span><span class="o">.</span><span class="n">glBindTexture</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">texID</span><span class="p">)</span>
+
+        <span class="n">gl</span><span class="o">.</span><span class="n">glTexImage2D</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">border</span><span class="p">,</span>  <span class="n">internalFormat</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span>
+                <span class="n">pixFormat</span><span class="p">,</span> <span class="n">texelType</span><span class="p">,</span> <span class="n">array</span><span class="p">)</span>
+
+        <span class="n">gl</span><span class="o">.</span><span class="n">glTexParameteri</span><span class="p">(</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_TEXTURE_2D</span><span class="p">,</span> <span class="n">gl</span><span class="o">.</span><span class="n">GL_TEXTURE_MAG_FILTER</span><span class="p">,</span>
+                <span class="n">interpolator</span><span class="p">)</span>
+        <span class="n">gl</span><span class="o">.</span><span class="n">glTexParameteri</span><span class="p">(</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_TEXTURE_2D</span><span class="p">,</span> <span class="n">gl</span><span class="o">.</span><span class="n">GL_TEXTURE_MIN_FILTER</span><span class="p">,</span>
+                <span class="n">interpolator</span><span class="p">)</span>
+        <span class="n">gl</span><span class="o">.</span><span class="n">glTexParameteri</span><span class="p">(</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_TEXTURE_2D</span><span class="p">,</span> <span class="n">gl</span><span class="o">.</span><span class="n">GL_TEXTURE_WRAP_S</span><span class="p">,</span> <span class="n">clamp</span><span class="p">)</span>
+        <span class="n">gl</span><span class="o">.</span><span class="n">glTexParameteri</span><span class="p">(</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_TEXTURE_2D</span><span class="p">,</span> <span class="n">gl</span><span class="o">.</span><span class="n">GL_TEXTURE_WRAP_T</span><span class="p">,</span> <span class="n">clamp</span><span class="p">)</span>
+
+        <span class="n">gl</span><span class="o">.</span><span class="n">glBindTexture</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Texture.bind"><a class="viewcode-back" href="../../api/index.html#litGL.texture.Texture.bind">[docs]</a>    <span class="k">def</span> <span class="nf">bind</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">samplerSlot</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Select active texture unit and bind the texture to a</span>
+<span class="sd">            texturing target.</span>
+
+<span class="sd">            Args:</span>
+<span class="sd">                samplerSlot (int): slot offset from gl.GL_TEXTURE0.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="p">(</span><span class="n">samplerSlot</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">samplerSlot</span> <span class="o">&lt;=</span> <span class="mi">31</span><span class="p">)</span>
+        <span class="n">gl</span><span class="o">.</span><span class="n">glActiveTexture</span><span class="p">(</span><span class="n">gl</span><span class="o">.</span><span class="n">GL_TEXTURE0</span> <span class="o">+</span> <span class="n">samplerSlot</span><span class="p">)</span>
+        <span class="n">gl</span><span class="o">.</span><span class="n">glBindTexture</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">target</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">texID</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Texture.unbind"><a class="viewcode-back" href="../../api/index.html#litGL.texture.Texture.unbind">[docs]</a>    <span class="k">def</span> <span class="nf">unbind</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Unbind texture.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">gl</span><span class="o">.</span><span class="n">glBindTexture</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">target</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span></div></div>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../../index.html">
+              <img class="logo" src="../../_static/ogs.png" alt="Logo"/>
+            </a></p>
+<h3><a href="../../index.html">Table of Contents</a></h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api/index.html">litGL package reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../credits.html">Credits</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../license.html">License</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../changes.html">Changes</a></li>
+</ul>
+
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">litGL 1.0.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">litGL.texture</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2020-2021, Nicola Creati, Roberto Vidmar.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 4.3.0.
+    </div>
+  </body>
+</html>
