@@ -9,7 +9,7 @@ Run command:
 
 For the bleeding edge install with:
 
-    pip3 install git+https://bitbucket.org/ncreati/litGL
+    pip3 install git+https://github.com/ncreati/litGL
 
 Run example code:
 
@@ -18,7 +18,7 @@ Run example code:
     python3 -m litGL.examples.example5
 
 ### Where is the documentation? ###
-[Here!](http:///bitbucket.org/ncreati/litGL/doc/html)
+[Here!](http:///github.com/ncreati/litGL/doc/html)
 
 ### Who do I talk to? ###
 

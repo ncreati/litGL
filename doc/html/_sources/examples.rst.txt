@@ -9,7 +9,7 @@ package with some usage examples.
 ------------------------------                                                                   
 .. parsed-literal::                                                             
                                                                                 
-    $ python3 -m |projectl|.examples.example1                                          
+    $ python3 -m |project|.examples.example1                                          
 
 .. _ex1_fig:                                                                   
 .. figure:: images/example1.png
@@ -26,7 +26,7 @@ Text is rendered in a glfw_ window.
 ------------------------------                                                                   
 .. parsed-literal::                                                             
                                                                                 
-    $ python3 -m |projectl|.examples.example2                                          
+    $ python3 -m |project|.examples.example2                                          
 
 .. _ex2_fig:                                                                   
 .. figure:: images/example2.png
@@ -44,7 +44,7 @@ Example of colored text rendered in a glfw_ window.
 ------------------------------                                                                   
 .. parsed-literal::                                                             
                                                                                 
-    $ python3 -m |projectl|.examples.example3                                          
+    $ python3 -m |project|.examples.example3                                          
 
 .. _ex3_fig:                                                                   
 .. figure:: images/example3.png
@@ -63,7 +63,7 @@ window, rectangles show the bounding boxes of the rendered text.
 ------------------------------                                                                   
 .. parsed-literal::                                                             
                                                                                 
-    $ python3 -m |projectl|.examples.example4                                          
+    $ python3 -m |project|.examples.example4                                          
 
 .. _ex4_fig:                                                                   
 .. figure:: images/example4.png
@@ -81,7 +81,7 @@ Interactive example of various alignments. Text is rendered in a glfw_ window.
 ------------------------------                                                                   
 .. parsed-literal::                                                             
                                                                                 
-    $ python3 -m |projectl|.examples.example5                                          
+    $ python3 -m |project|.examples.example5                                          
 
 .. _ex5_fig:                                                                   
 .. figure:: images/example5.png

@@ -1,13 +1,13 @@
 .. |project| replace:: litGL
 .. |projectl| replace:: litgl
-.. |projecth| replace:: https://bitbucket.org/ncreati/litGL
-.. |projectg| replace:: git+https://bitbucket.org/ncreati/litGL
+.. |projecth| replace:: https://github.com/ncreati/litGL
+.. |projectg| replace:: git+https://github.com/ncreati/litGL
 .. |nick| replace:: Nicola Creati
 .. |bobo| replace:: Roberto Vidmar
 .. |OGS| replace:: OGS
 
 .. _project: index.html
-.. _project_home: https://bitbucket.org/ncreati/litGL
+.. _project_home: https://github.com/ncreati/litGL
 .. _project_pypi: https://pypi.org/project/litGL
 .. _nick: https://www.inogs.it/users/nicola-creati
 .. _bobo: https://www.inogs.it/users/roberto-vidmar

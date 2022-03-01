@@ -26,18 +26,12 @@ the pickle module and gzipped.
 The :class:`litGL.label.Label` class is in charge of rendering any text string
 in an OpenGL_ context using the distilled font file.
 
-|project|_ is hosted on `Bitbucket <project_home_>`_.
+|project|_ is hosted on `GitHub <project_home_>`_.
 
 
 Installation
 -------------------------------------------------------------------------------
-Install |project|_ from PyPi_ (recommended) with:
-
-.. parsed-literal::
-
-    $ pip3 install |projectl|
-
-To install |project|_ from `Bitbucket <project_home_>`_:
+To install |project|_ from `GitHub <project_home_>`_:
 
 .. parsed-literal::
 

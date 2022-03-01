@@ -1,2 +1,2 @@
 include litGL/*.nbf
-include litGL/examples/*.nbf
+include litGL/fonts/*.ttf
