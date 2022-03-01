@@ -18,7 +18,7 @@ Run example code:
     python3 -m litGL.examples.example5
 
 ### Where is the documentation? ###
-[Here!](http:///github.com/ncreati/litGL/tree/master/doc/html)
+[Here!](https://ncreati.github.io/litGL/)
 
 ### Who do I talk to? ###
 
