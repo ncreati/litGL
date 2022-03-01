@@ -24,3 +24,7 @@ Run example code:
 
 * [Nicola Creati](http://www.inogs.it//users/nicola-creati)
 * [Roberto Vidmar](http://www.inogs.it//users/roberto-vidmar)
+
+
+[![DOI](https://zenodo.org/badge/464802968.svg)](https://zenodo.org/badge/latestdoi/464802968)
+
